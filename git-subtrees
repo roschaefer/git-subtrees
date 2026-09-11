@@ -1,0 +1,370 @@
+#!/usr/bin/env bash
+#
+# git subtrees <mapping|fetch|push|status> -- manage subtrees with no
+# separate config at all: a subtree is any registered git remote whose
+# name is exactly the path of an existing directory in the worktree (e.g.
+# a remote named "vendor/foo" maps to the folder vendor/foo). There's
+# nothing to keep in sync by hand: renaming the folder just means the
+# remote no longer matches anything until you `git remote rename` it to
+# the new path, and git already migrates all of that remote's config when
+# you do.
+#
+#   mapping List every registered remote and what it maps to: a matching
+#           directory if there is one, otherwise "no mapping" -- useful
+#           for spotting a remote left orphaned by a folder rename.
+#
+#   fetch   Fetch every remote configured for the current repo's subtrees,
+#           in parallel. Populates the normal refs/remotes/<name>/*
+#           tracking refs that `status` and `push` read from -- neither of
+#           those does any network I/O itself, they only look at whatever
+#           was last fetched (exactly like plain `git status` vs `git
+#           fetch`).
+#
+#   status  Show which configured subtrees have local changes relative to
+#           what was last fetched (run `fetch` first for fresh results) --
+#           pure local tree comparison, no network I/O.
+#
+#   push    Push every configured subtree that has changes (per `status`)
+#           to a remote branch matching the current local branch name.
+#           Uses only the last-fetched remote state to decide what needs
+#           pushing -- run `fetch` first for fresh results, same as a
+#           plain `git push` relies on your last `git fetch`. If the
+#           remote has moved on in the meantime, the push for that repo
+#           will simply be rejected as a normal non-fast-forward, same as
+#           any other git push.
+
+set -euo pipefail
+
+top_usage() {
+  cat <<'EOF'
+Usage: git subtrees <command> [options] [path...]
+
+Commands:
+  mapping  Show every registered remote and what it maps to.
+  fetch    Fetch every remote configured for the current repo's subtrees.
+  status   Show which configured subtrees have local changes.
+  push     Push subtrees with local changes to their remotes.
+
+Run `git subtrees <command> --help` for command-specific options.
+EOF
+}
+
+# Shared discovery for all subcommands: a subtree is any registered remote
+# whose name matches an existing directory. Sets ALL_REMOTES (every
+# registered remote, for membership checks) and ALL_PATHS (the subset that
+# are subtrees).
+discover_subtrees() {
+  repo_root="$(git rev-parse --show-toplevel)"
+  cd "$repo_root"
+
+  declare -ga ALL_REMOTES=()
+  mapfile -t ALL_REMOTES < <(git remote)
+
+  declare -ga ALL_PATHS=()
+  for remote in "${ALL_REMOTES[@]}"; do
+    [[ -d "$remote" ]] && ALL_PATHS+=("$remote")
+  done
+
+  if [[ "${#ALL_PATHS[@]}" -eq 0 ]]; then
+    printf 'No subtrees found: no registered remote name matches a directory in %s\n' "$repo_root" >&2
+    printf 'Register one with: git remote add <path> <url>, where <path> is the subtree folder.\n' >&2
+    exit 1
+  fi
+}
+
+# True if $1 is both an existing directory and a registered remote name --
+# i.e. a subtree path recognized by discover_subtrees.
+is_subtree_path() {
+  local path="$1" r
+  [[ -d "$path" ]] || return 1
+  for r in "${ALL_REMOTES[@]}"; do
+    [[ "$r" == "$path" ]] && return 0
+  done
+  return 1
+}
+
+# Resolve the tracking ref to compare a subtree's local content against:
+# refs/remotes/<remote>/<branch> if it exists (current branch already has
+# a matching remote branch), otherwise refs/remotes/<remote>/<base>.
+# Sets: target_ref, is_new_branch
+resolve_target_ref() {
+  local remote="$1" branch="$2" base_branch="$3"
+  is_new_branch=0
+  target_ref="refs/remotes/$remote/$branch"
+  if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
+    is_new_branch=1
+    target_ref="refs/remotes/$remote/$base_branch"
+  fi
+}
+
+cmd_mapping() {
+  usage() {
+    cat <<'EOF'
+Usage: git subtrees mapping
+
+Show every registered remote, in git's own order, and what it maps to:
+a remote whose name matches an existing directory maps to that subtree's
+URL; a remote with no matching directory is shown with no mapping (for
+example, right after the directory was renamed without a matching
+`git remote rename`).
+EOF
+  }
+
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
+
+  repo_root="$(git rev-parse --show-toplevel)"
+  cd "$repo_root"
+
+  while IFS= read -r remote; do
+    if [[ -d "$remote" ]]; then
+      url="$(git remote get-url "$remote" 2>/dev/null || echo '?')"
+      printf '%s -> %s\n' "$remote" "$url"
+    else
+      printf '%s -> (no mapping)\n' "$remote"
+    fi
+  done < <(git remote)
+}
+
+cmd_fetch() {
+  usage() {
+    cat <<'EOF'
+Usage: git subtrees fetch [path...]
+
+Fetch every remote that is a subtree (see `git subtrees mapping`), or just
+the given subtree paths, in parallel.
+EOF
+  }
+
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
+
+  discover_subtrees
+
+  paths=("$@")
+  if [[ "${#paths[@]}" -eq 0 ]]; then
+    paths=("${ALL_PATHS[@]}")
+  fi
+
+  declare -A seen=()
+  pids=()
+  remotes_in_flight=()
+  for path in "${paths[@]}"; do
+    if ! is_subtree_path "$path"; then
+      echo "!! unknown subtree path: $path (no registered remote named '$path')" >&2
+      continue
+    fi
+    remote="$path"
+    [[ -n "${seen[$remote]:-}" ]] && continue
+    seen["$remote"]=1
+    git fetch --quiet "$remote" &
+    pids+=("$!")
+    remotes_in_flight+=("$remote")
+  done
+
+  failures=()
+  for i in "${!pids[@]}"; do
+    if ! wait "${pids[$i]}"; then
+      failures+=("${remotes_in_flight[$i]}")
+    fi
+  done
+
+  if [[ "${#failures[@]}" -gt 0 ]]; then
+    echo "Failed to fetch: ${failures[*]}" >&2
+    exit 1
+  fi
+}
+
+cmd_status() {
+  usage() {
+    cat <<'EOF'
+Usage: git subtrees status [--base BRANCH] [path...]
+
+Compare each subtree's local content against the last-fetched
+remote-tracking branch (refs/remotes/<remote>/<current-branch>, or
+refs/remotes/<remote>/<base> if that branch doesn't exist on the remote
+yet). No network I/O -- run `git subtrees fetch` first for fresh results.
+
+  --base BRANCH  Branch to compare against for repos where the current
+                 branch doesn't exist on the remote yet. Default: main.
+  path...        Only check these subtrees. Default: all discovered.
+EOF
+  }
+
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
+
+  discover_subtrees
+
+  base_branch="main"
+  explicit_paths=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --base) base_branch="$2"; shift 2 ;;
+      *) explicit_paths+=("$1"); shift ;;
+    esac
+  done
+
+  paths=("${explicit_paths[@]}")
+  if [[ "${#paths[@]}" -eq 0 ]]; then
+    paths=("${ALL_PATHS[@]}")
+  fi
+
+  branch="$(git symbolic-ref --short HEAD)"
+  any_changed=0
+
+  for path in "${paths[@]}"; do
+    if ! is_subtree_path "$path"; then
+      echo "!! unknown subtree path: $path (no registered remote named '$path')" >&2
+      continue
+    fi
+    remote="$path"
+
+    resolve_target_ref "$remote" "$branch" "$base_branch"
+
+    if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
+      echo "?? $path (no local knowledge of $remote/$base_branch -- run git subtrees fetch)"
+      any_changed=1
+      continue
+    fi
+
+    if ! git rev-parse -q --verify "HEAD:$path" >/dev/null; then
+      echo "!! $path: not found at HEAD (committed yet?)" >&2
+      any_changed=1
+      continue
+    fi
+
+    if git diff --quiet "${target_ref}^{tree}" "HEAD:$path"; then
+      continue
+    fi
+
+    any_changed=1
+    if [[ "$is_new_branch" -eq 1 ]]; then
+      echo "new  $path -> $remote/$branch (differs from $base_branch)"
+    else
+      echo "mod  $path -> $remote/$branch"
+    fi
+    git diff --stat "${target_ref}^{tree}" "HEAD:$path" | sed 's/^/       /'
+  done
+
+  if [[ "$any_changed" -eq 0 ]]; then
+    echo "nothing to push (all subtrees match their last-fetched remote state)"
+  fi
+}
+
+cmd_push() {
+  usage() {
+    cat <<'EOF'
+Usage: git subtrees push [--base BRANCH] [path...]
+
+Push each subtree with local changes (see `git subtrees status`) to a
+remote branch matching the current local branch name.
+
+  --base BRANCH  Branch to compare against for repos where the current
+                 branch doesn't exist on the remote yet. Default: main.
+  path...        Only push these subtrees. Default: all discovered.
+
+Configuration:
+  None. A subtree is any registered remote whose name is exactly the
+  path of an existing directory, e.g.:
+
+      git remote add vendor/foo <url>
+
+  See `git subtrees mapping` to check what's currently discovered.
+EOF
+  }
+
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
+
+  discover_subtrees
+
+  base_branch="main"
+  explicit_paths=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --base) base_branch="$2"; shift 2 ;;
+      *) explicit_paths+=("$1"); shift ;;
+    esac
+  done
+
+  paths=("${explicit_paths[@]}")
+  if [[ "${#paths[@]}" -eq 0 ]]; then
+    paths=("${ALL_PATHS[@]}")
+  fi
+
+  branch="$(git symbolic-ref --short HEAD)"
+  failures=()
+
+  ssh_control_dir="$(mktemp -d)"
+  trap 'rm -rf "$ssh_control_dir"' EXIT
+  export GIT_SSH_COMMAND="ssh -o ControlMaster=auto -o ControlPersist=60 -o ControlPath=$ssh_control_dir/%r@%h:%p"
+
+  for path in "${paths[@]}"; do
+    if ! is_subtree_path "$path"; then
+      echo "!! unknown subtree path: $path (no registered remote named '$path')" >&2
+      failures+=("$path")
+      continue
+    fi
+    remote="$path"
+
+    resolve_target_ref "$remote" "$branch" "$base_branch"
+
+    if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
+      echo "!! no local knowledge of $remote/$base_branch for $path -- run git subtrees fetch first" >&2
+      failures+=("$path")
+      continue
+    fi
+
+    if ! git rev-parse -q --verify "HEAD:$path" >/dev/null; then
+      echo "!! $path: not found at HEAD (committed yet?)" >&2
+      failures+=("$path")
+      continue
+    fi
+
+    if git diff --quiet "${target_ref}^{tree}" "HEAD:$path"; then
+      continue
+    fi
+
+    out="$(git subtree push --prefix="$path" "$remote" "$branch" 2>&1)" && ok=1 || ok=0
+
+    echo "=== $path -> $remote/$branch ==="
+    echo "$out"
+
+    if [[ "$ok" -ne 1 ]]; then
+      failures+=("$path")
+    fi
+  done
+
+  if [[ "${#failures[@]}" -gt 0 ]]; then
+    echo
+    echo "Failed: ${failures[*]}" >&2
+    exit 1
+  fi
+}
+
+subcommand="${1:-}"
+case "$subcommand" in
+  -h|--help|"")
+    top_usage
+    [[ -z "$subcommand" ]] && exit 1
+    exit 0
+    ;;
+  mapping|fetch|status|push)
+    shift
+    "cmd_$subcommand" "$@"
+    ;;
+  *)
+    echo "!! unknown command: $subcommand" >&2
+    top_usage >&2
+    exit 1
+    ;;
+esac
