@@ -229,7 +229,7 @@ EOF
     resolve_target_ref "$remote" "$branch" "$base_branch"
 
     if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
-      echo "?? $path (no local knowledge of $remote/$base_branch -- run git subtrees fetch)"
+      echo "?? $path (no tracking data for $remote/$base_branch -- run 'git subtrees fetch', or if this subtree was never pushed, 'git subtrees push')"
       any_changed=1
       continue
     fi
@@ -318,20 +318,22 @@ EOF
 
     resolve_target_ref "$remote" "$branch" "$base_branch"
 
-    if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
-      echo "!! no local knowledge of $remote/$base_branch for $path -- run git subtrees fetch first" >&2
-      failures+=("$path")
-      continue
-    fi
-
     if ! git rev-parse -q --verify "HEAD:$path" >/dev/null; then
       echo "!! $path: not found at HEAD (committed yet?)" >&2
       failures+=("$path")
       continue
     fi
 
-    if git diff --quiet "${target_ref}^{tree}" "HEAD:$path"; then
-      continue
+    if git rev-parse -q --verify "$target_ref" >/dev/null; then
+      if git diff --quiet "${target_ref}^{tree}" "HEAD:$path"; then
+        continue
+      fi
+    else
+      # No tracking ref yet -- either this subtree has never been pushed
+      # (fetch would find nothing, same as any other empty remote branch)
+      # or you just haven't fetched. Either way, push anyway and let git's
+      # own non-fast-forward check catch a genuine conflict.
+      echo "?? $path: no tracking data for $remote/$base_branch yet -- pushing anyway" >&2
     fi
 
     out="$(git subtree push --prefix="$path" "$remote" "$branch" 2>&1)" && ok=1 || ok=0

@@ -32,3 +32,24 @@ until you also run `git remote rename <old-path> <new-path>`.
     git subtrees push      # push subtrees with local changes to their remotes
 
 Run `git subtrees <command> --help` for options.
+
+## Install
+
+    git clone <url> git-subtrees
+    ln -s "$(pwd)/git-subtrees/git-subtrees" ~/.local/bin/git-subtrees
+
+Make sure the symlink's target directory is on your `PATH` -- git picks
+up any `git-<name>` executable on `PATH` as `git <name>`.
+
+Requires:
+
+- Bash >= 4.2 (uses `mapfile` and `declare -g`). Linux distributions
+  ship this by default; macOS's system bash is 3.2, so install a newer
+  one (e.g. `brew install bash`) and make sure it's found first on
+  `PATH`.
+- The `git subtree` contrib command, bundled with git on most Linux
+  distributions -- check with `git subtree --help`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
