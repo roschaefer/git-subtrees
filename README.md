@@ -63,16 +63,16 @@ for the one-time step if it isn't yet.
 
 Every other command in this tool is meant to be safe to run repeatedly without
 thinking about it. The very first connection between a subtree and its remote isn't
--- it depends on which of a few situations you're in, and this tool deliberately
-doesn't try to guess *that you want to do it at all*. You still have to register the
-remote yourself:
+-- it depends on which of a few situations you're in, and `git subtrees connect
+<path> <url>` figures it out on its own.
 
-    git remote add <path> <url>
+If no remote named `<path>` exists yet, it registers one pointing at `<url>`
+(equivalent to `git remote add <path> <url>`). If one already exists but points
+somewhere else, it refuses and tells you to fix it -- it never rewrites an
+existing remote's URL (`git remote set-url`, and check for a leftover `--push`
+override, are the manual fix).
 
-Once that's done, `git subtrees connect <path> <url>` figures out the rest on its own:
-it checks whether `<path>` has content locally, whether a branch matching your current
-local branch exists on the remote, and whether the two share history, then does
-exactly one of:
+Then, based on local and remote state, it does exactly one of:
 
 - **Nothing**, if the remote has no matching branch yet -- there's nothing to connect,
   your next `git subtrees push <path>` will populate it.
@@ -90,10 +90,6 @@ exactly one of:
       mv <path> <path>.bak
       git subtrees connect <path> <url>
       # then, e.g.: cp -rn <path>.bak/. <path>/ && git add <path> && git commit
-
-It refuses to run, rather than guess, if the registered remote's URL doesn't match
-`<url>` -- fix the remote yourself (`git remote set-url`, and check for a leftover
-`--push` override) and re-run.
 
 ## Install
 

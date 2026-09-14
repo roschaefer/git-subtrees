@@ -47,9 +47,10 @@
 #   connect One-time bootstrap for a single path/remote pair -- the only
 #           command in this tool that isn't safe to run blindly on every
 #           subtree, because it has to pick between genuinely different
-#           git operations depending on what it finds. Requires the
-#           remote to already exist (git remote add <path> <url>) and
-#           point at <url> -- never creates or rewrites it. Then, based
+#           git operations depending on what it finds. Registers the
+#           remote (git remote add <path> <url>) if none exists yet;
+#           refuses if one exists pointing elsewhere rather than rewrite
+#           it. Then, based
 #           on whether <path> has content locally and whether the remote
 #           branch matching your current local branch exists and shares
 #           history with HEAD, it does exactly one of: nothing (remote's
@@ -454,12 +455,10 @@ has to choose between genuinely different git operations depending on
 what it finds. Every other command (fetch/status/pull/push) is automatic
 once this has run.
 
-Requires the remote to already exist and point at <url>:
-
-    git remote add <path> <url>
-
-If it doesn't, or points somewhere else, this refuses and tells you to
-fix it -- it never creates or rewrites a remote itself.
+If no remote named <path> exists yet, this registers one pointing at <url>
+(equivalent to `git remote add <path> <url>`). If one already exists but
+points somewhere else, this refuses and tells you to fix it -- it never
+rewrites an existing remote's URL itself.
 
 Then, based on local and remote state, it does exactly one of:
 
@@ -498,10 +497,9 @@ EOF
 
   existing_url="$(git remote get-url "$path" 2>/dev/null || true)"
   if [[ -z "$existing_url" ]]; then
-    echo "!! no remote named '$path' -- run: git remote add $path $url" >&2
-    exit 1
-  fi
-  if [[ "$existing_url" != "$url" ]]; then
+    git remote add "$path" "$url"
+    echo "ok added remote '$path' -> $url"
+  elif [[ "$existing_url" != "$url" ]]; then
     echo "!! remote '$path' points to $existing_url, not $url -- fix it yourself:" >&2
     echo "     git remote set-url $path $url" >&2
     echo "   (and check 'git remote -v' for a separate --push override left over from testing)" >&2
