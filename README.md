@@ -1,5 +1,3 @@
-# This is another test
-
 # git-subtrees
 
 Manage multiple `git subtree` prefixes in a monorepo without a separate
@@ -44,6 +42,7 @@ local branch the same as you want it to be everywhere.
     git subtrees status    # show every registered remote, what it maps to, and its connection state
     git subtrees fetch     # fetch all subtree remotes in parallel
     git subtrees push      # push subtrees with local changes to their remotes
+    git subtrees import    # one-time bootstrap of a single path/remote pair
 
 Run `git subtrees <command> --help` for options.
 
@@ -64,37 +63,38 @@ for the one-time step if it isn't yet.
 
 Every other command in this tool is meant to be safe to run repeatedly without
 thinking about it. The very first connection between a subtree and its remote isn't
--- it depends on which of two situations you're in, and this tool deliberately
-doesn't try to guess. Pick the one that matches and do that step yourself; everything
-afterward (`fetch`/`status`/`pull`/`push`) is automatic.
-
-**Splitting an existing folder out to a brand-new remote.** You already have a folder
-in the monorepo with real history and want to start publishing it as its own repo for
-the first time. There's no history to reconcile -- just register the (empty) remote
-and push:
+-- it depends on which of a few situations you're in, and this tool deliberately
+doesn't try to guess *that you want to do it at all*. You still have to register the
+remote yourself:
 
     git remote add <path> <url>
-    git subtrees push
 
-If nothing is ever committed to that remote independently before your first pull, you
-will never hit the reconnection problem below. If something *does* land there outside
-this tool (someone edits a file on GitHub, a bot's PR gets merged, and so on) before
-you've pulled it in, your next `git subtrees pull` will fail with "refusing to merge
-unrelated histories" -- at that point you're in the reconnection case below.
+Once that's done, `git subtrees import <path> <url>` figures out the rest on its own:
+it checks whether `<path>` has content locally, whether a branch matching your current
+local branch exists on the remote, and whether the two share history, then does
+exactly one of:
 
-**Importing an existing, independent repository into the monorepo at a path.** This
-is what `git subtree add` itself is for -- run it yourself, once:
+- **Nothing**, if the remote has no matching branch yet -- there's nothing to import,
+  your next `git subtrees push <path>` will populate it.
+- **Nothing**, if `<path>` already has content and is already connected.
+- **`git subtree add --prefix=<path> <url> <branch>`**, if `<path>` is empty or
+  doesn't exist yet and the remote has independent history to bring in. (`add`
+  requires `<path>` not already exist locally -- an empty directory there gets
+  removed first, since that satisfies `add`'s check without losing anything.)
+- **The scratch-repo reconnect merge below**, if `<path>` already has content that
+  shares no common ancestor with the remote branch -- typically because something
+  landed on the remote independently before you ever connected it (someone edited a
+  file on GitHub, a bot's PR got merged, and so on).
 
-    git subtree add --prefix=<path> <url> <branch>
-    git remote add <path> <url>
+It refuses to run, rather than guess, if the registered remote's URL doesn't match
+`<url>` -- fix the remote yourself (`git remote set-url`, and check for a leftover
+`--push` override) and re-run.
 
-(`add` requires `<path>` not already exist locally, which is exactly the case here.)
-
-**Reconnecting** (the "something landed on the remote independently" case above, or
-any other time local and remote history have genuinely diverged and you know what
-you're doing): `git subtree add` refuses to run once the folder already has content,
-so build the connection in a disposable scratch repo instead and merge *that* in --
-never the remote's raw history directly, which is what makes this safe:
+If the reconnect merge ends in a conflict, resolve it and commit as usual --
+re-running `git subtrees import` afterward is safe, it'll find the paths now
+connected and do nothing. For reference, this is what it runs: build the connection
+in a disposable scratch repo and merge *that* in, never the remote's raw history
+directly, which is what makes it safe even though the two sides share no ancestor:
 
     scratch="$(mktemp -d)"
     (cd "$scratch" && git init -q && git commit -q --allow-empty -m root &&
@@ -102,8 +102,6 @@ never the remote's raw history directly, which is what makes this safe:
     git fetch --quiet "$scratch" "$(cd "$scratch" && git symbolic-ref --short HEAD)"
     rm -rf "$scratch"
     git merge --allow-unrelated-histories FETCH_HEAD -m "chore: connect <path> subtree history"
-
-Resolve any conflict the last step reports as you would any other merge conflict.
 
 ## Install
 
