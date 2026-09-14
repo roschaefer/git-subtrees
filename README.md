@@ -42,7 +42,7 @@ local branch the same as you want it to be everywhere.
     git subtrees status    # show every registered remote, what it maps to, and its connection state
     git subtrees fetch     # fetch all subtree remotes in parallel
     git subtrees push      # push subtrees with local changes to their remotes
-    git subtrees import    # one-time bootstrap of a single path/remote pair
+    git subtrees connect   # one-time bootstrap of a single path/remote pair
 
 Run `git subtrees <command> --help` for options.
 
@@ -69,39 +69,31 @@ remote yourself:
 
     git remote add <path> <url>
 
-Once that's done, `git subtrees import <path> <url>` figures out the rest on its own:
+Once that's done, `git subtrees connect <path> <url>` figures out the rest on its own:
 it checks whether `<path>` has content locally, whether a branch matching your current
 local branch exists on the remote, and whether the two share history, then does
 exactly one of:
 
-- **Nothing**, if the remote has no matching branch yet -- there's nothing to import,
+- **Nothing**, if the remote has no matching branch yet -- there's nothing to connect,
   your next `git subtrees push <path>` will populate it.
 - **Nothing**, if `<path>` already has content and is already connected.
 - **`git subtree add --prefix=<path> <url> <branch>`**, if `<path>` is empty or
   doesn't exist yet and the remote has independent history to bring in. (`add`
   requires `<path>` not already exist locally -- an empty directory there gets
   removed first, since that satisfies `add`'s check without losing anything.)
-- **The scratch-repo reconnect merge below**, if `<path>` already has content that
+- **Tells you to move `<path>` aside yourself**, if `<path>` already has content that
   shares no common ancestor with the remote branch -- typically because something
   landed on the remote independently before you ever connected it (someone edited a
-  file on GitHub, a bot's PR got merged, and so on).
+  file on GitHub, a bot's PR got merged, and so on). Reconciling unrelated local and
+  remote content is a judgment call this tool won't make for you:
+
+      mv <path> <path>.bak
+      git subtrees connect <path> <url>
+      # then, e.g.: cp -rn <path>.bak/. <path>/ && git add <path> && git commit
 
 It refuses to run, rather than guess, if the registered remote's URL doesn't match
 `<url>` -- fix the remote yourself (`git remote set-url`, and check for a leftover
 `--push` override) and re-run.
-
-If the reconnect merge ends in a conflict, resolve it and commit as usual --
-re-running `git subtrees import` afterward is safe, it'll find the paths now
-connected and do nothing. For reference, this is what it runs: build the connection
-in a disposable scratch repo and merge *that* in, never the remote's raw history
-directly, which is what makes it safe even though the two sides share no ancestor:
-
-    scratch="$(mktemp -d)"
-    (cd "$scratch" && git init -q && git commit -q --allow-empty -m root &&
-      git subtree add --prefix=<path> <url> <branch> -m "prep: prefix history under <path>/")
-    git fetch --quiet "$scratch" "$(cd "$scratch" && git symbolic-ref --short HEAD)"
-    rm -rf "$scratch"
-    git merge --allow-unrelated-histories FETCH_HEAD -m "chore: connect <path> subtree history"
 
 ## Install
 

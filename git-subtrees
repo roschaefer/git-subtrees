@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# git subtrees <pull|status|fetch|push> -- manage subtrees with no
+# git subtrees <pull|status|fetch|push|connect> -- manage subtrees with no
 # separate config at all: a subtree is any registered git remote whose
 # name is exactly the path of an existing directory in the worktree (e.g.
 # a remote named "vendor/foo" maps to the folder vendor/foo). There's
@@ -44,7 +44,7 @@
 #           will simply be rejected as a normal non-fast-forward, same as
 #           any other git push.
 #
-#   import  One-time bootstrap for a single path/remote pair -- the only
+#   connect One-time bootstrap for a single path/remote pair -- the only
 #           command in this tool that isn't safe to run blindly on every
 #           subtree, because it has to pick between genuinely different
 #           git operations depending on what it finds. Requires the
@@ -55,9 +55,10 @@
 #           history with HEAD, it does exactly one of: nothing (remote's
 #           empty, next `push` will populate it; or already connected,
 #           nothing to do), `git subtree add` (path is empty/missing,
-#           remote has independent history to bring in), or the
-#           scratch-repo reconnect merge (path already has content and
-#           the remote's history doesn't share an ancestor with it).
+#           remote has independent history to bring in), or tells you to
+#           move the path aside yourself (path already has content that
+#           shares no history with the remote -- resolving that is a
+#           judgment call this tool won't make for you).
 
 set -euo pipefail
 
@@ -70,7 +71,7 @@ Commands:
   status   Show every registered remote, what it maps to, and its connection state.
   fetch    Fetch every remote configured for the current repo's subtrees.
   push     Push subtrees with local changes to their remotes.
-  import   One-time bootstrap of a single path/remote pair.
+  connect  One-time bootstrap of a single path/remote pair.
 
 Run `git subtrees <command> --help` for command-specific options.
 EOF
@@ -442,10 +443,10 @@ EOF
   fi
 }
 
-cmd_import() {
+cmd_connect() {
   usage() {
     cat <<'EOF'
-Usage: git subtrees import <path> <url>
+Usage: git subtrees connect <path> <url>
 
 One-time bootstrap connecting a single local path to a remote -- the only
 command here that isn't safe to run unattended on every subtree, since it
@@ -470,13 +471,12 @@ Then, based on local and remote state, it does exactly one of:
   - `git subtree add --prefix=<path> <url> <branch>`, if <path> is empty
     or doesn't exist yet and the remote branch has independent history
     to bring in.
-  - The scratch-repo reconnect merge (see the README's "Bootstrapping a
-    new subtree" section), if <path> already has content and it shares
-    no common ancestor with the remote branch.
-
-If that last case ends in a merge conflict, resolve it and commit as
-usual -- re-running `git subtrees import` afterward is safe, it will
-find the paths now connected and do nothing.
+  - Tells you to move <path> aside yourself, if <path> already has
+    content that shares no common ancestor with the remote branch.
+    Reconciling unrelated local and remote content is a judgment call
+    this tool won't make for you -- move it, re-run to pull in the
+    remote's history via `git subtree add`, then bring back whatever you
+    want from the moved-aside copy by hand.
 EOF
   }
 
@@ -524,15 +524,15 @@ EOF
 
   if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
     if [[ "$path_has_content" -eq 1 ]]; then
-      echo "ok $path: $path has no '$branch' branch on it yet -- nothing to import; your next 'git subtrees push $path' will populate it"
+      echo "ok $path: $path has no '$branch' branch on it yet -- nothing to connect; your next 'git subtrees push $path' will populate it"
     else
-      echo "ok $path: neither $path nor a '$branch' branch on it exist yet -- nothing to import; add content at $path, commit it, then 'git subtrees push $path'"
+      echo "ok $path: neither $path nor a '$branch' branch on it exist yet -- nothing to connect; add content at $path, commit it, then 'git subtrees push $path'"
     fi
     exit 0
   fi
 
   if [[ "$path_has_content" -eq 0 ]]; then
-    echo "=== importing $path <- $path/$branch ==="
+    echo "=== connecting $path <- $path/$branch ==="
     git subtree add --prefix="$path" "$url" "$branch"
     exit 0
   fi
@@ -543,20 +543,16 @@ EOF
     exit 0
   fi
 
-  echo "=== connecting $path to $path/$branch (no shared history -- building it via a scratch repo) ==="
-  scratch="$(mktemp -d)"
-  (cd "$scratch" && git init -q && git commit -q --allow-empty -m root &&
-    git subtree add --prefix="$path" "$url" "$branch" -m "prep: prefix $path history under $path/")
-  scratch_branch="$(cd "$scratch" && git symbolic-ref --short HEAD)"
-  git fetch --quiet "$scratch" "$scratch_branch"
-  rm -rf "$scratch"
+  cat >&2 <<EOF
+!! $path already has content that shares no history with $path/$branch --
+   this needs your judgment, not automation. Move it aside, re-run to pull
+   in the remote's history, then bring back whatever you want by hand:
 
-  if git merge --allow-unrelated-histories FETCH_HEAD -m "chore: connect $path to $path/$branch"; then
-    echo "connected $path"
-  else
-    echo "!! connect merge conflicted for $path -- resolve it and commit, then re-run 'git subtrees import $path $url' (it will find them connected and do nothing)" >&2
-    exit 1
-  fi
+     mv $path $path.bak
+     git subtrees connect $path $url
+     # then, e.g.: cp -rn $path.bak/. $path/ && git add $path && git commit
+EOF
+  exit 1
 }
 
 subcommand="${1:-}"
@@ -566,7 +562,7 @@ case "$subcommand" in
     [[ -z "$subcommand" ]] && exit 1
     exit 0
     ;;
-  pull|status|fetch|push|import)
+  pull|status|fetch|push|connect)
     shift
     "cmd_$subcommand" "$@"
     ;;
