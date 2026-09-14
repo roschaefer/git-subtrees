@@ -43,6 +43,21 @@
 #           remote has moved on in the meantime, the push for that repo
 #           will simply be rejected as a normal non-fast-forward, same as
 #           any other git push.
+#
+#   import  One-time bootstrap for a single path/remote pair -- the only
+#           command in this tool that isn't safe to run blindly on every
+#           subtree, because it has to pick between genuinely different
+#           git operations depending on what it finds. Requires the
+#           remote to already exist (git remote add <path> <url>) and
+#           point at <url> -- never creates or rewrites it. Then, based
+#           on whether <path> has content locally and whether the remote
+#           branch matching your current local branch exists and shares
+#           history with HEAD, it does exactly one of: nothing (remote's
+#           empty, next `push` will populate it; or already connected,
+#           nothing to do), `git subtree add` (path is empty/missing,
+#           remote has independent history to bring in), or the
+#           scratch-repo reconnect merge (path already has content and
+#           the remote's history doesn't share an ancestor with it).
 
 set -euo pipefail
 
@@ -55,6 +70,7 @@ Commands:
   status   Show every registered remote, what it maps to, and its connection state.
   fetch    Fetch every remote configured for the current repo's subtrees.
   push     Push subtrees with local changes to their remotes.
+  import   One-time bootstrap of a single path/remote pair.
 
 Run `git subtrees <command> --help` for command-specific options.
 EOF
@@ -426,6 +442,123 @@ EOF
   fi
 }
 
+cmd_import() {
+  usage() {
+    cat <<'EOF'
+Usage: git subtrees import <path> <url>
+
+One-time bootstrap connecting a single local path to a remote -- the only
+command here that isn't safe to run unattended on every subtree, since it
+has to choose between genuinely different git operations depending on
+what it finds. Every other command (fetch/status/pull/push) is automatic
+once this has run.
+
+Requires the remote to already exist and point at <url>:
+
+    git remote add <path> <url>
+
+If it doesn't, or points somewhere else, this refuses and tells you to
+fix it -- it never creates or rewrites a remote itself.
+
+Then, based on local and remote state, it does exactly one of:
+
+  - Nothing, if the remote has no <branch> branch yet (<branch> being
+    your current local branch) -- your next `git subtrees push <path>`
+    will populate it.
+  - Nothing, if <path> already has content and is already connected
+    (shares a common ancestor with the remote branch).
+  - `git subtree add --prefix=<path> <url> <branch>`, if <path> is empty
+    or doesn't exist yet and the remote branch has independent history
+    to bring in.
+  - The scratch-repo reconnect merge (see the README's "Bootstrapping a
+    new subtree" section), if <path> already has content and it shares
+    no common ancestor with the remote branch.
+
+If that last case ends in a merge conflict, resolve it and commit as
+usual -- re-running `git subtrees import` afterward is safe, it will
+find the paths now connected and do nothing.
+EOF
+  }
+
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
+
+  if [[ "${#@}" -ne 2 ]]; then
+    usage >&2
+    exit 1
+  fi
+
+  path="$1"
+  url="$2"
+
+  repo_root="$(git rev-parse --show-toplevel)"
+  cd "$repo_root"
+
+  existing_url="$(git remote get-url "$path" 2>/dev/null || true)"
+  if [[ -z "$existing_url" ]]; then
+    echo "!! no remote named '$path' -- run: git remote add $path $url" >&2
+    exit 1
+  fi
+  if [[ "$existing_url" != "$url" ]]; then
+    echo "!! remote '$path' points to $existing_url, not $url -- fix it yourself:" >&2
+    echo "     git remote set-url $path $url" >&2
+    echo "   (and check 'git remote -v' for a separate --push override left over from testing)" >&2
+    exit 1
+  fi
+
+  path_has_content=0
+  if [[ -e "$path" ]]; then
+    if [[ -d "$path" && -z "$(ls -A "$path")" ]]; then
+      rmdir "$path"
+    else
+      path_has_content=1
+    fi
+  fi
+
+  git fetch --quiet --no-write-fetch-head "$path"
+
+  branch="$(git symbolic-ref --short HEAD)"
+  target_ref="$(target_ref_for "$path" "$branch")"
+
+  if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
+    if [[ "$path_has_content" -eq 1 ]]; then
+      echo "ok $path: $path has no '$branch' branch on it yet -- nothing to import; your next 'git subtrees push $path' will populate it"
+    else
+      echo "ok $path: neither $path nor a '$branch' branch on it exist yet -- nothing to import; add content at $path, commit it, then 'git subtrees push $path'"
+    fi
+    exit 0
+  fi
+
+  if [[ "$path_has_content" -eq 0 ]]; then
+    echo "=== importing $path <- $path/$branch ==="
+    git subtree add --prefix="$path" "$url" "$branch"
+    exit 0
+  fi
+
+  mb="$(git merge-base "$target_ref" HEAD 2>/dev/null || true)"
+  if [[ -n "$mb" ]]; then
+    echo "ok $path: already connected to $path/$branch -- nothing to do (see 'git subtrees status'/'pull'/'push')"
+    exit 0
+  fi
+
+  echo "=== connecting $path to $path/$branch (no shared history -- building it via a scratch repo) ==="
+  scratch="$(mktemp -d)"
+  (cd "$scratch" && git init -q && git commit -q --allow-empty -m root &&
+    git subtree add --prefix="$path" "$url" "$branch" -m "prep: prefix $path history under $path/")
+  scratch_branch="$(cd "$scratch" && git symbolic-ref --short HEAD)"
+  git fetch --quiet "$scratch" "$scratch_branch"
+  rm -rf "$scratch"
+
+  if git merge --allow-unrelated-histories FETCH_HEAD -m "chore: connect $path to $path/$branch"; then
+    echo "connected $path"
+  else
+    echo "!! connect merge conflicted for $path -- resolve it and commit, then re-run 'git subtrees import $path $url' (it will find them connected and do nothing)" >&2
+    exit 1
+  fi
+}
+
 subcommand="${1:-}"
 case "$subcommand" in
   -h|--help|"")
@@ -433,7 +566,7 @@ case "$subcommand" in
     [[ -z "$subcommand" ]] && exit 1
     exit 0
     ;;
-  pull|status|fetch|push)
+  pull|status|fetch|push|import)
     shift
     "cmd_$subcommand" "$@"
     ;;
