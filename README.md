@@ -134,6 +134,27 @@ Requires:
 - The `git subtree` contrib command, bundled with git on most Linux
   distributions -- check with `git subtree --help`.
 
+### Shell completions
+
+Completions for bash, zsh, and fish live under `completions/`. They
+complete both `git subtrees <TAB>` and the standalone `git-subtrees <TAB>`,
+and offer discovered subtree paths as arguments to `fetch`/`pull`/`push`/
+`status`.
+
+    # bash -- source from ~/.bashrc, or drop into a directory bash-completion
+    # loads eagerly (e.g. /etc/bash_completion.d/), since git's own dispatch
+    # to _git_subtrees needs the function already defined in the shell
+    source /path/to/git-subtrees/completions/git-subtrees.bash
+
+    # zsh -- install as `_git-subtrees` on your $fpath, then start a new
+    # shell (or run `compinit`)
+    ln -s /path/to/git-subtrees/completions/git-subtrees.zsh \
+      /usr/local/share/zsh/site-functions/_git-subtrees
+
+    # fish
+    ln -s /path/to/git-subtrees/completions/git-subtrees.fish \
+      ~/.config/fish/completions/git-subtrees.fish
+
 ## Development
 
     nix develop
