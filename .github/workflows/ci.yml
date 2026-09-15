@@ -50,3 +50,33 @@ jobs:
               echo "git:  $(git --version)"
               bats --recursive test
             '
+
+  bash-3.2-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # bash 3.2 (2006) is what the README calls out as macOS's frozen
+      # system default -- it predates every nixpkgs revision's binary
+      # cache, so unlike the rest of the matrix this one is compiled from
+      # source with the runner's own toolchain instead of downloaded.
+      - name: build bash 3.2
+        run: |
+          curl -fsSL -o bash-3.2.tar.gz https://ftp.gnu.org/gnu/bash/bash-3.2.tar.gz
+          tar xzf bash-3.2.tar.gz
+          cd bash-3.2
+          ./configure --prefix="$HOME/bash-3.2"
+          make
+          make install
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: test
+        run: |
+          export PATH="$HOME/bash-3.2/bin:$PATH"
+          nix shell nixpkgs#git nixpkgs#bats --command bash -c '
+            echo "bash: $(bash --version | head -1)"
+            echo "git:  $(git --version)"
+            bats --recursive test
+          '
