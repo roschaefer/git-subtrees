@@ -4,7 +4,7 @@ scenario_diverged_common_ancestor() {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
-  connect_subtree "$monorepo" "$upstream" "vendor/a"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
   (
     cd "$monorepo"
     echo "local change" >>vendor/a/file.txt

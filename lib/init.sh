@@ -4,7 +4,7 @@ usage_init() {
   cat <<'EOF'
 usage: git subtrees init <path> <url>
 
-One-time bootstrap connecting worktree directory <path> to <url> as a
+One-time bootstrap adding/adopting worktree directory <path> from <url> as a
 subtree, registering a remote named <path> if one doesn't already exist.
 Requires exactly one <path> <url> pair -- unlike every other command, init
 is not batchable across all discovered subtrees, since it's the one
@@ -45,20 +45,20 @@ cmd_init() {
   classify_subtree "$path" "$branch"
 
   if [[ "$SUBTREE_STATE" == "missing-at-head" ]]; then
-    log_ok "$path: remote has no '$branch' branch yet -- nothing to connect"
+    log_ok "$path: remote has no '$branch' branch yet -- nothing to add"
     return 0
   fi
 
   if [[ ! -d "$path" ]]; then
     log_step "$path: adding subtree from $url"
     git subtree add --prefix="$path" "$path" "$branch" --squash
-    log_ok "$path: connected"
+    log_ok "$path: added"
     return 0
   fi
 
   case "$SUBTREE_STATE" in
     up-to-date | push | pull | diverged)
-      log_ok "$path: already connected"
+      log_ok "$path: already initialized"
       ;;
     unrelated-history)
       log_err "$path: directory exists with content unrelated to $url"
@@ -66,7 +66,7 @@ cmd_init() {
       exit 1
       ;;
     *)
-      die "$path: remote has no branches to connect to"
+      die "$path: remote has no branches to add"
       ;;
   esac
 }

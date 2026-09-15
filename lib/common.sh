@@ -61,7 +61,7 @@ regex_escape() {
 # Not path-limited: the squash commit's own tree has no prefix, so a
 # pathspec-limited `git log` would never match it (git log's history
 # simplification also hides it behind the merge commit). Empty output means
-# this path has never been connected via `git subtree add`/`pull`.
+# this path has never been initialized via `git subtree add`/`pull`.
 find_sync_commit() {
   local path="$1" pattern
   pattern="^git-subtree-dir: $(regex_escape "$path")\$"

@@ -33,7 +33,7 @@ contract. The current local branch name is the sync target on every
 subtree remote.
 
 Commands:
-  init <path> <url>   one-time bootstrap: register a remote and connect it
+  init <path> <url>   one-time bootstrap: register a remote and add/adopt it
   fetch [path...]     fetch every subtree's remote (default: all)
   pull [path...]      squash-merge upstream changes into subtree paths
   push [path...]      push local subtree changes upstream
