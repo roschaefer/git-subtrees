@@ -24,7 +24,7 @@
 
           shellHook = ''
             repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-            export PATH="$repo_root:$PATH"
+            export PATH="$repo_root:$repo_root/playground:$PATH"
           '';
         };
       });

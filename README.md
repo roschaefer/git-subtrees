@@ -187,6 +187,14 @@ shell inside the built monorepo -- `exit` to leave it. Pass `--no-shell` to
 just print the sandbox path instead (the default when not run
 interactively, e.g. piped or scripted).
 
+    simulate-remote-change <path> [message]
+
+also on `PATH` inside `nix develop`. Pushes one new commit to `<path>`'s
+remote from outside the monorepo, so `git subtrees status`/`fetch`/`pull`
+have real upstream activity to react to -- handy for repeating the
+pull scenario on demand instead of only getting it once at playground
+build time.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
