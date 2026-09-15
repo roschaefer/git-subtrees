@@ -21,3 +21,32 @@ jobs:
 
       - name: test
         run: nix develop --command just test
+
+  compat-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        bash_rev: [nixos-21.05, nixos-25.05]
+        git_rev: [nixos-21.05, nixos-25.05]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      # bash and git are pulled independently from separate pinned nixpkgs
+      # revisions -- prebuilt binaries from cache.nixos.org, no compiling --
+      # so every {bash, git} pair in the matrix is exercised, not just
+      # whatever pairing a single nixpkgs snapshot happens to ship.
+      - name: test
+        run: |
+          nix shell \
+            "github:NixOS/nixpkgs/${{ matrix.bash_rev }}#bashInteractive" \
+            "github:NixOS/nixpkgs/${{ matrix.git_rev }}#git" \
+            "nixpkgs#bats" \
+            --command bash -c '
+              echo "bash: $(bash --version | head -1)"
+              echo "git:  $(git --version)"
+              bats --recursive test
+            '
