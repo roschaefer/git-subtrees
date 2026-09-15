@@ -38,32 +38,60 @@ local branch the same as you want it to be everywhere.
 
 ## Commands
 
-    git subtrees pull      # bring in a subtree's remote changes (assumes already connected)
-    git subtrees status    # show every registered remote, what it maps to, and its connection state
+    git subtrees status    # show every registered remote, what it maps to, and its sync state
     git subtrees fetch     # fetch all subtree remotes in parallel
+    git subtrees pull      # bring in a subtree's remote changes (assumes already connected)
     git subtrees push      # push subtrees with local changes to their remotes
-    git subtrees connect   # one-time bootstrap of a single path/remote pair
+    git subtrees init      # one-time bootstrap of a single path/remote pair
 
 Run `git subtrees <command> --help` for options.
 
 `git subtrees pull` uses `git subtree pull --squash` rather than a plain merge:
-squash mode's synthetic commit is parented on your own previous pull, never on the
-remote's raw commit, so repeated pulls can't drag in the remote's unprefixed history
-the way a non-squash pull would -- which matters, because that's exactly what breaks
-`git subtree split`/`push` later with "tree entry is of type blob, expected tree or
-commit" the moment it walks back through one of those commits. This does mean each
-pull lands as one squashed commit rather than the remote's individual commits -- the
-documented, standard trade-off for subtrees pulled more than rarely. It's a no-op if
-you're already up to date.
+squash mode's synthetic commit never drags in the remote's raw, unprefixed
+history the way a non-squash pull would -- which matters, because that's
+exactly what breaks `git subtree split`/`push` later with "tree entry is of
+type blob, expected tree or commit" the moment it walks back through one of
+those commits. This does mean each pull lands as one squashed commit rather
+than the remote's individual commits -- the documented, standard trade-off
+for subtrees pulled more than rarely. It's a no-op if you're already up to
+date.
 
-`pull` assumes the subtree is already connected to its remote -- see the next section
-for the one-time step if it isn't yet.
+`pull` and `push` assume the subtree is already connected to its remote --
+see the next section for the one-time step if it isn't yet.
+
+### Sync states
+
+`status`, `pull`, and `push` all classify each subtree's sync state the
+same way, comparing what was last synced (recovered from `git subtree`'s
+own `git-subtree-dir`/`git-subtree-split` commit trailers, not from
+literal commit ancestry -- squash commits are never real ancestors of the
+remote's raw history) against the current local and remote content:
+
+- **`not-connected`** -- the remote has never been fetched.
+- **`missing-at-head`** -- the remote doesn't have a branch matching your
+  current branch name.
+- **`up to date`** -- nothing to do.
+- **`push`** / **`pull`** -- only one side moved since the last sync.
+- **`diverged`** -- both sides moved, but they still share the sync point
+  as a common ancestor. `pull` attempts its normal squash merge, which may
+  hit an ordinary conflict -- resolve it and run plain `git commit`, then
+  re-run `pull`.
+- **`unrelated-history`** -- both sides moved (or never synced at all),
+  and share **no** common ancestor -- typically because the remote's
+  history was rebuilt from scratch independently of what this tool last
+  knew about it. There's no principled automatic merge here, only a human
+  decision to keep one side and discard the other's history, so `pull`
+  and `push` don't attempt anything: they print two ready-to-run recovery
+  commands, one to re-adopt the remote's version, one to force the local
+  version onto the remote. See
+  [`test/scenarios/diverged-unrelated-history/README.md`](test/scenarios/diverged-unrelated-history/README.md)
+  for a concrete worked example.
 
 ## Bootstrapping a new subtree
 
 Every other command in this tool is meant to be safe to run repeatedly without
 thinking about it. The very first connection between a subtree and its remote isn't
--- it depends on which of a few situations you're in, and `git subtrees connect
+-- it depends on which of a few situations you're in, and `git subtrees init
 <path> <url>` figures it out on its own.
 
 If no remote named `<path>` exists yet, it registers one pointing at `<url>`
@@ -77,10 +105,8 @@ Then, based on local and remote state, it does exactly one of:
 - **Nothing**, if the remote has no matching branch yet -- there's nothing to connect,
   your next `git subtrees push <path>` will populate it.
 - **Nothing**, if `<path>` already has content and is already connected.
-- **`git subtree add --prefix=<path> <url> <branch>`**, if `<path>` is empty or
-  doesn't exist yet and the remote has independent history to bring in. (`add`
-  requires `<path>` not already exist locally -- an empty directory there gets
-  removed first, since that satisfies `add`'s check without losing anything.)
+- **`git subtree add --prefix=<path> <url> <branch>`**, if `<path>` doesn't
+  exist locally yet and the remote has independent history to bring in.
 - **Tells you to move `<path>` aside yourself**, if `<path>` already has content that
   shares no common ancestor with the remote branch -- typically because something
   landed on the remote independently before you ever connected it (someone edited a
@@ -88,8 +114,27 @@ Then, based on local and remote state, it does exactly one of:
   remote content is a judgment call this tool won't make for you:
 
       mv <path> <path>.bak
-      git subtrees connect <path> <url>
+      git subtrees init <path> <url>
       # then, e.g.: cp -rn <path>.bak/. <path>/ && git add <path> && git commit
+
+## When not to use this
+
+Two structural limitations, not bugs to fix:
+
+- **No nested subtrees.** A subtree is identified purely by a remote name
+  matching a directory path, and `git subtree` itself doesn't cleanly
+  support one managed prefix living inside another. Two subtree paths must
+  never be prefixes of one another (e.g. `vendor/pkg` and `vendor/pkg/extra`
+  can't both be managed subtrees at once) -- a change under `vendor/pkg/extra`
+  would be ambiguous about which subtree it belongs to, and `git subtree`'s
+  own prefix-based diffing gets confused by overlapping prefixes. If you
+  need one vendored project inside another, this tool isn't the right fit.
+- **Same remote, multiple working directories.** A remote name maps 1:1 to
+  exactly one directory, so this tool has no way to check the same
+  upstream remote out into two different folders at once. Use `git
+  worktree` instead -- that's precisely the problem it solves, and bending
+  this tool's remote-to-path convention to cover it would reintroduce the
+  kind of implicit shared state the zero-config design is meant to avoid.
 
 ## Install
 
@@ -97,7 +142,9 @@ Then, based on local and remote state, it does exactly one of:
     ln -s "$(pwd)/git-subtrees/git-subtrees" ~/.local/bin/git-subtrees
 
 Make sure the symlink's target directory is on your `PATH` -- git picks
-up any `git-<name>` executable on `PATH` as `git <name>`.
+up any `git-<name>` executable on `PATH` as `git <name>`. The `lib/`
+directory next to `git-subtrees` must stay alongside it; only the
+top-level `git-subtrees` file gets symlinked.
 
 Requires:
 
@@ -107,6 +154,35 @@ Requires:
   `PATH`.
 - The `git subtree` contrib command, bundled with git on most Linux
   distributions -- check with `git subtree --help`.
+
+## Development
+
+    nix develop
+
+drops you into a shell with `git`, `bats`, `shellcheck`, and `shfmt` on
+`PATH`, plus the repo's own `git-subtrees` (the live working copy, not an
+installed one) prepended to `PATH` so `git subtrees ...` immediately picks
+up uncommitted edits.
+
+    make lint       # shellcheck
+    make fmt-check  # shfmt -d
+    make fmt        # shfmt -w
+    make test       # bats --recursive test
+    make ci         # lint + fmt-check + test, same as CI
+
+Tests live under `test/`, one `*.bats` file per command plus `common.bats`
+(discovery/classification) and `cli.bats` (real subprocess smoke tests
+against the entrypoint, including through a symlink). `test/scenarios/`
+holds named, self-documenting git-history fixtures -- each folder has a
+`README.md` describing the exact history shape and a `setup.bash` building
+it -- rather than ad hoc fixtures buried inside test files.
+
+    playground/setup.sh
+
+builds a throwaway sandbox (a scratch monorepo plus fixture bare "upstream"
+repos, defaulting to a fresh `mktemp -d`) for manually exercising commands
+against realistic state. Run it from inside `nix develop`; it prints a `cd`
+command and a short walkthrough when it's done.
 
 ## License
 

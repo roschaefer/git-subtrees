@@ -1,572 +1,85 @@
 #!/usr/bin/env bash
+# git subtrees -- manage multiple git subtree prefixes with zero config.
 #
-# git subtrees <pull|status|fetch|push|connect> -- manage subtrees with no
-# separate config at all: a subtree is any registered git remote whose
-# name is exactly the path of an existing directory in the worktree (e.g.
-# a remote named "vendor/foo" maps to the folder vendor/foo). There's
-# nothing to keep in sync by hand: renaming the folder just means the
-# remote no longer matches anything until you `git remote rename` it to
-# the new path, and git already migrates all of that remote's config when
-# you do.
-#
-#   pull    Bring in a subtree's remote changes via `git subtree pull
-#           --squash` (never a plain merge -- see cmd_pull for why: it
-#           would attach the remote's raw commit as a literal parent,
-#           which breaks `git subtree split`/`push` later with "tree
-#           entry is of type blob, expected tree or commit"). Assumes the
-#           subtree is already connected to its remote -- see the
-#           README's "Bootstrapping a new subtree" section for the
-#           one-time manual step if it isn't yet. A no-op if already up
-#           to date.
-#
-#   status  List every registered remote and what it maps to: a matching
-#           directory if there is one, otherwise "no mapping" -- useful
-#           for spotting a remote left orphaned by a folder rename. For a
-#           mapped subtree, also shows its connection state against the
-#           last-fetched remote branch of the same name as your current
-#           local branch: not connected, up to date, push, pull, or
-#           diverged -- pure local comparison, no network I/O, run
-#           `fetch` first for fresh results.
-#
-#   fetch   Fetch every remote configured for the current repo's subtrees,
-#           in parallel. Populates the normal refs/remotes/<name>/*
-#           tracking refs that `status` and `push` read from -- neither
-#           does any network I/O itself, they only look at whatever was
-#           last fetched (exactly like plain `git status` vs `git
-#           fetch`).
-#
-#   push    Push every configured subtree that has changes (per `status`)
-#           to a remote branch matching the current local branch name.
-#           Uses only the last-fetched remote state to decide what needs
-#           pushing -- run `fetch` first for fresh results, same as a
-#           plain `git push` relies on your last `git fetch`. If the
-#           remote has moved on in the meantime, the push for that repo
-#           will simply be rejected as a normal non-fast-forward, same as
-#           any other git push.
-#
-#   connect One-time bootstrap for a single path/remote pair -- the only
-#           command in this tool that isn't safe to run blindly on every
-#           subtree, because it has to pick between genuinely different
-#           git operations depending on what it finds. Registers the
-#           remote (git remote add <path> <url>) if none exists yet;
-#           refuses if one exists pointing elsewhere rather than rewrite
-#           it. Then, based
-#           on whether <path> has content locally and whether the remote
-#           branch matching your current local branch exists and shares
-#           history with HEAD, it does exactly one of: nothing (remote's
-#           empty, next `push` will populate it; or already connected,
-#           nothing to do), `git subtree add` (path is empty/missing,
-#           remote has independent history to bring in), or tells you to
-#           move the path aside yourself (path already has content that
-#           shares no history with the remote -- resolving that is a
-#           judgment call this tool won't make for you).
-
+# A "subtree" is implicitly any git remote whose name exactly equals the
+# path of an existing directory in the worktree. There is no config file.
+# The current local branch name doubles as the sync target on every
+# subtree remote.
 set -euo pipefail
+
+real_path="$(readlink -f "${BASH_SOURCE[0]}")"
+script_dir="$(cd "$(dirname "$real_path")" && pwd)"
+
+# shellcheck source=lib/common.sh
+source "$script_dir/lib/common.sh"
+# shellcheck source=lib/init.sh
+source "$script_dir/lib/init.sh"
+# shellcheck source=lib/fetch.sh
+source "$script_dir/lib/fetch.sh"
+# shellcheck source=lib/pull.sh
+source "$script_dir/lib/pull.sh"
+# shellcheck source=lib/push.sh
+source "$script_dir/lib/push.sh"
+# shellcheck source=lib/status.sh
+source "$script_dir/lib/status.sh"
 
 top_usage() {
   cat <<'EOF'
-Usage: git subtrees <command> [options] [path...]
+usage: git subtrees <command> [<args>]
+
+A subtree is any git remote whose name equals the path of an existing
+worktree directory. There is no config file -- that mapping is the whole
+contract. The current local branch name is the sync target on every
+subtree remote.
 
 Commands:
-  pull     Bring in a subtree's remote changes (assumes already connected).
-  status   Show every registered remote, what it maps to, and its connection state.
-  fetch    Fetch every remote configured for the current repo's subtrees.
-  push     Push subtrees with local changes to their remotes.
-  connect  One-time bootstrap of a single path/remote pair.
+  init <path> <url>   one-time bootstrap: register a remote and connect it
+  fetch [path...]     fetch every subtree's remote (default: all)
+  pull [path...]      squash-merge upstream changes into subtree paths
+  push [path...]      push local subtree changes upstream
+  status [path...]    show sync state of every remote
 
-Run `git subtrees <command> --help` for command-specific options.
+Run 'git subtrees <command> -h' for command-specific help.
 EOF
 }
 
-# Shared discovery for all subcommands: a subtree is any registered remote
-# whose name matches an existing directory. Sets ALL_REMOTES (every
-# registered remote, for membership checks) and ALL_PATHS (the subset that
-# are subtrees).
-discover_subtrees() {
-  repo_root="$(git rev-parse --show-toplevel)"
-  cd "$repo_root"
-
-  declare -ga ALL_REMOTES=()
-  mapfile -t ALL_REMOTES < <(git remote)
-
-  declare -ga ALL_PATHS=()
-  for remote in "${ALL_REMOTES[@]}"; do
-    [[ -d "$remote" ]] && ALL_PATHS+=("$remote")
-  done
-
-  if [[ "${#ALL_PATHS[@]}" -eq 0 ]]; then
-    printf 'No subtrees found: no registered remote name matches a directory in %s\n' "$repo_root" >&2
-    printf 'Register one with: git remote add <path> <url>, where <path> is the subtree folder.\n' >&2
-    exit 1
-  fi
-}
-
-# True if $1 is both an existing directory and a registered remote name --
-# i.e. a subtree path recognized by discover_subtrees.
-is_subtree_path() {
-  local path="$1" r
-  [[ -d "$path" ]] || return 1
-  for r in "${ALL_REMOTES[@]}"; do
-    [[ "$r" == "$path" ]] && return 0
-  done
-  return 1
-}
-
-# The tracking ref to compare a subtree's local content against: always
-# refs/remotes/<remote>/<branch>, the same-named branch on the remote as
-# the current local branch. No fallback to any other branch -- if that
-# ref doesn't exist, the caller treats it as "no tracking data".
-target_ref_for() {
-  local remote="$1" branch="$2"
-  echo "refs/remotes/$remote/$branch"
-}
-
-cmd_pull() {
-  usage() {
-    cat <<'EOF'
-Usage: git subtrees pull [path...]
-
-Bring in a subtree's changes from the remote branch of the same name as
-your current local branch. Assumes the subtree is already connected to
-its remote -- see the README's "Bootstrapping a new subtree" section for
-the one-time manual step if it isn't yet. A no-op if already up to date.
-
-Uses `git subtree pull --squash`, not a plain merge: squash mode's
-synthetic commit is parented on your own previous pull, never on the
-remote's raw commit, so repeated pulls can't drag in the remote's
-unprefixed history the way a non-squash pull would (see the README for
-why that matters). This does mean each pull lands as one squashed
-commit, not the remote's individual commits -- the documented, standard
-trade-off for subtrees pulled more than rarely.
-
-If the merge conflicts, resolve it and commit as usual; re-running this
-command afterward picks up any remaining paths.
-
-  path...  Only pull these subtrees. Default: all discovered.
-EOF
-  }
-
-  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-  fi
-
-  discover_subtrees
-
-  paths=("$@")
-  if [[ "${#paths[@]}" -eq 0 ]]; then
-    paths=("${ALL_PATHS[@]}")
-  fi
-
-  branch="$(git symbolic-ref --short HEAD)"
-  failures=()
-
-  for path in "${paths[@]}"; do
-    if ! is_subtree_path "$path"; then
-      echo "!! unknown subtree path: $path (no registered remote named '$path')" >&2
-      failures+=("$path")
-      continue
-    fi
-    remote="$path"
-
-    if ! git fetch --quiet --no-write-fetch-head "$remote"; then
-      echo "!! failed to fetch $remote" >&2
-      failures+=("$path")
-      continue
-    fi
-
-    target_ref="$(target_ref_for "$remote" "$branch")"
-    if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
-      echo "?? $path: no '$branch' branch on $remote yet -- nothing to pull"
-      continue
-    fi
-
-    if git merge-base --is-ancestor "$target_ref" HEAD 2>/dev/null; then
-      echo "ok       $path already up to date with $remote/$branch"
-      continue
-    fi
-
-    echo "=== pulling $path <- $remote/$branch ==="
-
-    if git subtree pull --squash --prefix="$path" "$remote" "$branch"; then
-      echo "pulled $path"
-    else
-      echo "!! pull failed for $path -- if this subtree was never connected to its remote, see the README's 'Bootstrapping a new subtree' section; otherwise resolve any conflict, commit, then re-run 'git subtrees pull' for any remaining paths" >&2
-      failures+=("$path")
-      exit 1
-    fi
-  done
-
-  if [[ "${#failures[@]}" -gt 0 ]]; then
-    echo
-    echo "Failed: ${failures[*]}" >&2
-    exit 1
-  fi
-}
-
-cmd_status() {
-  usage() {
-    cat <<'EOF'
-Usage: git subtrees status [path...]
-
-Show every registered remote, in git's own order, and what it maps to:
-a remote whose name matches an existing directory is a subtree; a remote
-with no matching directory is shown with no mapping (for example, right
-after the directory was renamed without a matching `git remote rename`).
-
-For each mapped subtree, also shows its connection state against the
-last-fetched remote branch of the same name as your current local branch
--- pure local comparison, no network I/O (run `git subtrees fetch` first
-for fresh results):
-
-  not connected  No <branch> branch has ever been fetched from this
-                 remote -- see the README's "Bootstrapping a new subtree"
-                 section.
-  up to date     Local content matches the last-fetched remote tip.
-  push           You have local commits the remote doesn't -- safe to
-                 push.
-  pull           The remote has commits you don't -- pushing would just
-                 fail as non-fast-forward; pull first.
-  diverged       Both sides have independent changes -- pull, resolve any
-                 conflict, then push.
-
-  path...  Only show these subtrees. Default: every registered remote.
-EOF
-  }
-
-  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-  fi
-
-  discover_subtrees
-
-  paths=("$@")
-  restrict=0
-  if [[ "${#paths[@]}" -gt 0 ]]; then
-    restrict=1
-    for path in "${paths[@]}"; do
-      if ! is_subtree_path "$path"; then
-        echo "!! unknown subtree path: $path (no registered remote named '$path')" >&2
-        exit 1
-      fi
-    done
-  fi
-
-  branch="$(git symbolic-ref --short HEAD)"
-
-  for remote in "${ALL_REMOTES[@]}"; do
-    if [[ "$restrict" -eq 1 ]]; then
-      wanted=0
-      for path in "${paths[@]}"; do
-        [[ "$remote" == "$path" ]] && wanted=1
-      done
-      [[ "$wanted" -eq 0 ]] && continue
-    fi
-
-    if [[ ! -d "$remote" ]]; then
-      printf '%s -> (no mapping)\n' "$remote"
-      continue
-    fi
-
-    path="$remote"
-    url="$(git remote get-url "$remote" 2>/dev/null || echo '?')"
-    target_ref="$(target_ref_for "$remote" "$branch")"
-
-    if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
-      printf '%s -> %s  [not connected: no %s branch fetched from %s yet]\n' "$path" "$url" "$branch" "$remote"
-      continue
-    fi
-
-    if ! git rev-parse -q --verify "HEAD:$path" >/dev/null; then
-      printf '%s -> %s  [!! not found at HEAD -- committed yet?]\n' "$path" "$url"
-      continue
-    fi
-
-    if git diff --quiet "${target_ref}^{tree}" "HEAD:$path"; then
-      printf '%s -> %s  [up to date]\n' "$path" "$url"
-      continue
-    fi
-
-    if git merge-base --is-ancestor "$target_ref" HEAD 2>/dev/null; then
-      printf '%s -> %s  [push: local commits not on %s/%s]\n' "$path" "$url" "$remote" "$branch"
-      printf '         -> git subtrees push %s\n' "$path"
-    else
-      mb="$(git merge-base "$target_ref" HEAD 2>/dev/null || true)"
-      if [[ -n "$mb" ]] && git diff --quiet "${mb}^{tree}" "HEAD:$path" 2>/dev/null; then
-        printf '%s -> %s  [pull: upstream has new commits]\n' "$path" "$url"
-        printf '         -> git subtrees pull %s\n' "$path"
-      else
-        printf '%s -> %s  [diverged: both sides changed -- a push would fail]\n' "$path" "$url"
-        printf '         -> git subtrees pull %s   # resolve any conflict, then:\n' "$path"
-        printf '         -> git subtrees push %s\n' "$path"
-      fi
-    fi
-
-    git diff --stat "${target_ref}^{tree}" "HEAD:$path" | sed 's/^/         /'
-  done
-}
-
-cmd_fetch() {
-  usage() {
-    cat <<'EOF'
-Usage: git subtrees fetch [path...]
-
-Fetch every remote that is a subtree (see `git subtrees status`), or just
-the given subtree paths, in parallel. Updates refs/remotes/<name>/* only
--- deliberately does not touch FETCH_HEAD (--no-write-fetch-head), so it
-can't leave a stale FETCH_HEAD around from one branch that later gets
-picked up by an unrelated command after you've switched branches.
-EOF
-  }
-
-  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-  fi
-
-  discover_subtrees
-
-  paths=("$@")
-  if [[ "${#paths[@]}" -eq 0 ]]; then
-    paths=("${ALL_PATHS[@]}")
-  fi
-
-  declare -A seen=()
-  pids=()
-  remotes_in_flight=()
-  for path in "${paths[@]}"; do
-    if ! is_subtree_path "$path"; then
-      echo "!! unknown subtree path: $path (no registered remote named '$path')" >&2
-      continue
-    fi
-    remote="$path"
-    [[ -n "${seen[$remote]:-}" ]] && continue
-    seen["$remote"]=1
-    git fetch --quiet --no-write-fetch-head "$remote" &
-    pids+=("$!")
-    remotes_in_flight+=("$remote")
-  done
-
-  failures=()
-  for i in "${!pids[@]}"; do
-    if ! wait "${pids[$i]}"; then
-      failures+=("${remotes_in_flight[$i]}")
-    fi
-  done
-
-  if [[ "${#failures[@]}" -gt 0 ]]; then
-    echo "Failed to fetch: ${failures[*]}" >&2
-    exit 1
-  fi
-}
-
-cmd_push() {
-  usage() {
-    cat <<'EOF'
-Usage: git subtrees push [path...]
-
-Push each subtree with local changes (see `git subtrees status`) to a
-remote branch matching the current local branch name.
-
-  path...  Only push these subtrees. Default: all discovered.
-
-Configuration:
-  None. A subtree is any registered remote whose name is exactly the
-  path of an existing directory, e.g.:
-
-      git remote add vendor/foo <url>
-
-  See `git subtrees status` to check what's currently discovered.
-EOF
-  }
-
-  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-  fi
-
-  discover_subtrees
-
-  paths=("$@")
-  if [[ "${#paths[@]}" -eq 0 ]]; then
-    paths=("${ALL_PATHS[@]}")
-  fi
-
-  branch="$(git symbolic-ref --short HEAD)"
-  failures=()
-
-  ssh_control_dir="$(mktemp -d)"
-  trap 'rm -rf "$ssh_control_dir"' EXIT
-  export GIT_SSH_COMMAND="ssh -o ControlMaster=auto -o ControlPersist=60 -o ControlPath=$ssh_control_dir/%r@%h:%p"
-
-  for path in "${paths[@]}"; do
-    if ! is_subtree_path "$path"; then
-      echo "!! unknown subtree path: $path (no registered remote named '$path')" >&2
-      failures+=("$path")
-      continue
-    fi
-    remote="$path"
-    target_ref="$(target_ref_for "$remote" "$branch")"
-
-    if ! git rev-parse -q --verify "HEAD:$path" >/dev/null; then
-      echo "!! $path: not found at HEAD (committed yet?)" >&2
-      failures+=("$path")
-      continue
-    fi
-
-    if git rev-parse -q --verify "$target_ref" >/dev/null; then
-      if git diff --quiet "${target_ref}^{tree}" "HEAD:$path"; then
-        continue
-      fi
-    else
-      # No tracking ref yet -- either this subtree has never been pushed
-      # (fetch would find nothing, same as any other empty remote branch)
-      # or you just haven't fetched. Either way, push anyway and let git's
-      # own non-fast-forward check catch a genuine conflict.
-      echo "?? $path: no '$branch' branch tracked for $remote yet -- pushing anyway" >&2
-    fi
-
-    out="$(git subtree push --prefix="$path" "$remote" "$branch" 2>&1)" && ok=1 || ok=0
-
-    echo "=== $path -> $remote/$branch ==="
-    echo "$out"
-
-    if [[ "$ok" -ne 1 ]]; then
-      failures+=("$path")
-    fi
-  done
-
-  if [[ "${#failures[@]}" -gt 0 ]]; then
-    echo
-    echo "Failed: ${failures[*]}" >&2
-    exit 1
-  fi
-}
-
-cmd_connect() {
-  usage() {
-    cat <<'EOF'
-Usage: git subtrees connect <path> <url>
-
-One-time bootstrap connecting a single local path to a remote -- the only
-command here that isn't safe to run unattended on every subtree, since it
-has to choose between genuinely different git operations depending on
-what it finds. Every other command (fetch/status/pull/push) is automatic
-once this has run.
-
-If no remote named <path> exists yet, this registers one pointing at <url>
-(equivalent to `git remote add <path> <url>`). If one already exists but
-points somewhere else, this refuses and tells you to fix it -- it never
-rewrites an existing remote's URL itself.
-
-Then, based on local and remote state, it does exactly one of:
-
-  - Nothing, if the remote has no <branch> branch yet (<branch> being
-    your current local branch) -- your next `git subtrees push <path>`
-    will populate it.
-  - Nothing, if <path> already has content and is already connected
-    (shares a common ancestor with the remote branch).
-  - `git subtree add --prefix=<path> <url> <branch>`, if <path> is empty
-    or doesn't exist yet and the remote branch has independent history
-    to bring in.
-  - Tells you to move <path> aside yourself, if <path> already has
-    content that shares no common ancestor with the remote branch.
-    Reconciling unrelated local and remote content is a judgment call
-    this tool won't make for you -- move it, re-run to pull in the
-    remote's history via `git subtree add`, then bring back whatever you
-    want from the moved-aside copy by hand.
-EOF
-  }
-
-  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-  fi
-
-  if [[ "${#@}" -ne 2 ]]; then
-    usage >&2
-    exit 1
-  fi
-
-  path="$1"
-  url="$2"
-
-  repo_root="$(git rev-parse --show-toplevel)"
-  cd "$repo_root"
-
-  existing_url="$(git remote get-url "$path" 2>/dev/null || true)"
-  if [[ -z "$existing_url" ]]; then
-    git remote add "$path" "$url"
-    echo "ok added remote '$path' -> $url"
-  elif [[ "$existing_url" != "$url" ]]; then
-    echo "!! remote '$path' points to $existing_url, not $url -- fix it yourself:" >&2
-    echo "     git remote set-url $path $url" >&2
-    echo "   (and check 'git remote -v' for a separate --push override left over from testing)" >&2
-    exit 1
-  fi
-
-  path_has_content=0
-  if [[ -e "$path" ]]; then
-    if [[ -d "$path" && -z "$(ls -A "$path")" ]]; then
-      rmdir "$path"
-    else
-      path_has_content=1
-    fi
-  fi
-
-  git fetch --quiet --no-write-fetch-head "$path"
-
-  branch="$(git symbolic-ref --short HEAD)"
-  target_ref="$(target_ref_for "$path" "$branch")"
-
-  if ! git rev-parse -q --verify "$target_ref" >/dev/null; then
-    if [[ "$path_has_content" -eq 1 ]]; then
-      echo "ok $path: $path has no '$branch' branch on it yet -- nothing to connect; your next 'git subtrees push $path' will populate it"
-    else
-      echo "ok $path: neither $path nor a '$branch' branch on it exist yet -- nothing to connect; add content at $path, commit it, then 'git subtrees push $path'"
-    fi
-    exit 0
-  fi
-
-  if [[ "$path_has_content" -eq 0 ]]; then
-    echo "=== connecting $path <- $path/$branch ==="
-    git subtree add --prefix="$path" "$url" "$branch"
-    exit 0
-  fi
-
-  mb="$(git merge-base "$target_ref" HEAD 2>/dev/null || true)"
-  if [[ -n "$mb" ]]; then
-    echo "ok $path: already connected to $path/$branch -- nothing to do (see 'git subtrees status'/'pull'/'push')"
-    exit 0
-  fi
-
-  cat >&2 <<EOF
-!! $path already has content that shares no history with $path/$branch --
-   this needs your judgment, not automation. Move it aside, re-run to pull
-   in the remote's history, then bring back whatever you want by hand:
-
-     mv $path $path.bak
-     git subtrees connect $path $url
-     # then, e.g.: cp -rn $path.bak/. $path/ && git add $path && git commit
-EOF
-  exit 1
-}
-
-subcommand="${1:-}"
-case "$subcommand" in
-  -h|--help|"")
-    top_usage
-    [[ -z "$subcommand" ]] && exit 1
-    exit 0
-    ;;
-  pull|status|fetch|push|connect)
-    shift
-    "cmd_$subcommand" "$@"
-    ;;
-  *)
-    echo "!! unknown command: $subcommand" >&2
+main() {
+  if [[ $# -eq 0 ]]; then
     top_usage >&2
     exit 1
-    ;;
-esac
+  fi
+
+  case "$1" in
+    -h | --help)
+      top_usage
+      exit 0
+      ;;
+    init)
+      shift
+      cmd_init "$@"
+      ;;
+    fetch)
+      shift
+      cmd_fetch "$@"
+      ;;
+    pull)
+      shift
+      cmd_pull "$@"
+      ;;
+    push)
+      shift
+      cmd_push "$@"
+      ;;
+    status)
+      shift
+      cmd_status "$@"
+      ;;
+    *)
+      log_err "unknown command: $1"
+      top_usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"
