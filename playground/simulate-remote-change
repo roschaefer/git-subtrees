@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Playground helper: pushes a new commit to a connected subtree's remote,
+# simulating upstream activity so 'git subtrees status'/'pull' have
+# something real to show. On PATH inside `nix develop` (see flake.nix),
+# so it's usable by bare name from inside a playground sandbox monorepo.
+set -euo pipefail
+
+if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+  cat <<'EOF'
+usage: simulate-remote-change <path> [message]
+
+Simulates new upstream activity on subtree <path>'s remote: clones it,
+adds one commit, and pushes -- so 'git subtrees status'/'fetch'/'pull'
+have something real to react to. Run this from inside a git-subtrees
+monorepo (playground or otherwise) where <path> is a registered remote.
+
+  <path>      a registered remote name (e.g. vendor/pkg-a)
+  [message]   commit message (default: "simulated upstream change ...")
+EOF
+  exit 0
+fi
+
+path="$1"
+message="${2:-simulated upstream change at $(date -u +%H:%M:%S)}"
+
+remote_url="$(git remote get-url "$path" 2>/dev/null)" || {
+  echo "no remote named '$path' in $(pwd)" >&2
+  exit 1
+}
+
+branch="$(git symbolic-ref --quiet --short HEAD)" || {
+  echo "not on a branch" >&2
+  exit 1
+}
+
+tmp="$(mktemp -d)"
+git clone -q "$remote_url" "$tmp" 2>/dev/null
+(
+  cd "$tmp"
+  git config user.name "Playground"
+  git config user.email "playground@example.com"
+  echo "$message" >>file.txt
+  git add file.txt
+  git commit -q -m "$message"
+  git push -q origin "HEAD:$branch"
+)
+rm -rf "$tmp"
+
+echo "ok   $path: pushed a new commit upstream ('$message')"
+echo "     git subtrees status   # to see it"
+echo "     git subtrees pull     # to bring it in"

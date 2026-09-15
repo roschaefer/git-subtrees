@@ -124,6 +124,9 @@ Try:
   git subtrees init vendor/pkg-b $upstream_dir/pkg-b.git
   git subtrees fetch
   git subtrees pull
+  simulate-remote-change vendor/pkg-a   # simulate more upstream activity
+  git subtrees status
+  git subtrees pull
   echo "local edit" >> vendor/pkg-a/file.txt && git add vendor/pkg-a && git commit -m "local edit"
   git subtrees push
   git subtrees status
@@ -148,6 +151,9 @@ Try:
   git subtrees status
   git subtrees init vendor/pkg-b $upstream_dir/pkg-b.git
   git subtrees fetch
+  git subtrees pull
+  simulate-remote-change vendor/pkg-a   # simulate more upstream activity
+  git subtrees status
   git subtrees pull
   echo "local edit" >> vendor/pkg-a/file.txt && git add vendor/pkg-a && git commit -m "local edit"
   git subtrees push
