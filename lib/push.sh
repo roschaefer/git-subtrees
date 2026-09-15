@@ -21,7 +21,7 @@ push_one() {
 
   case "$SUBTREE_STATE" in
     not-connected)
-      log_warn "$path: not connected -- run 'git subtrees fetch $path' first"
+      log_warn "$path: not fetched -- run 'git subtrees fetch $path' first"
       return 1
       ;;
     up-to-date | pull)

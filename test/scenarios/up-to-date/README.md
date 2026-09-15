@@ -1,12 +1,12 @@
 # Scenario: up-to-date
 
-A subtree freshly connected via `git subtree add --squash` and never
+A subtree freshly added via `git subtree add --squash` and never
 touched again on either side.
 
-- **Monorepo (`vendor/a`)**: one commit (`seed`), connected, no local
+- **Monorepo (`vendor/a`)**: one commit (`seed`), added, no local
   changes since.
-- **Remote**: one commit (`seed`), unchanged since connection.
-- **Common ancestor**: yes -- they were just connected; the tree contents
+- **Remote**: one commit (`seed`), unchanged since add.
+- **Common ancestor**: yes -- they were just added; the tree contents
   are identical.
 
 Expected `classify_subtree` result: `up-to-date`.

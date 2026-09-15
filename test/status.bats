@@ -70,11 +70,11 @@ setup() {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
-  connect_subtree "$monorepo" "$upstream" "vendor/a"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
   local upstream_b="$BATS_TEST_TMPDIR/upstream-b.git"
   make_bare_repo "$upstream_b"
   seed_bare_repo "$upstream_b" "seed-b"
-  connect_subtree "$monorepo" "$upstream_b" "vendor/b"
+  add_subtree "$monorepo" "$upstream_b" "vendor/b"
   cd "$monorepo"
 
   run cmd_status vendor/a

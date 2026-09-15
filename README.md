@@ -21,43 +21,28 @@ maps to the folder `vendor/foo`. That's the entire configuration -- there
 is no config file. Run `git subtrees status` to see what's currently
 discovered.
 
-If you rename or move the folder, the remote no longer matches anything
-until you also run `git remote rename <old-path> <new-path>`.
+Assumption one: **the remote name is the subtree path.** If you rename or
+move the folder, the remote no longer matches anything until you also run
+`git remote rename <old-path> <new-path>`.
 
-The second (and only other) assumption: **your current local branch name is
-assumed to match the branch name on every subtree remote.** `fetch`/`status`/
-`pull`/`push` all compare against and act on `refs/remotes/<remote>/<branch>`
-where `<branch>` is whatever `git symbolic-ref --short HEAD` reports right
-now -- there's no separate `--base`/tracking-branch configuration, and no
-fallback to `main` if a same-named branch doesn't exist on a remote yet (in
-that case the command just reports there's nothing to compare against). In
-practice this means: work on `main` locally to sync against each remote's
-`main`, or check out a feature branch locally to fan the same-named feature
-branch out across every subtree remote it touches -- either way, name your
-local branch the same as you want it to be everywhere.
+Assumption two: **the local branch name is the remote branch name.**
+`fetch`/`status`/`pull`/`push` use your current branch for every subtree
+remote. Work on `main` to sync with remote `main`; check out a feature
+branch to sync with that same feature branch on each touched remote.
 
 ## Commands
 
     git subtrees status    # show every registered remote, what it maps to, and its sync state
     git subtrees fetch     # fetch all subtree remotes in parallel
-    git subtrees pull      # bring in a subtree's remote changes (assumes already connected)
+    git subtrees pull      # bring in remote changes with git subtree pull --squash
     git subtrees push      # push subtrees with local changes to their remotes
     git subtrees init      # one-time bootstrap of a single path/remote pair
 
 Run `git subtrees <command> --help` for options.
 
-`git subtrees pull` uses `git subtree pull --squash` rather than a plain merge:
-squash mode's synthetic commit never drags in the remote's raw, unprefixed
-history the way a non-squash pull would -- which matters, because that's
-exactly what breaks `git subtree split`/`push` later with "tree entry is of
-type blob, expected tree or commit" the moment it walks back through one of
-those commits. This does mean each pull lands as one squashed commit rather
-than the remote's individual commits -- the documented, standard trade-off
-for subtrees pulled more than rarely. It's a no-op if you're already up to
-date.
-
-`pull` and `push` assume the subtree is already connected to its remote --
-see the next section for the one-time step if it isn't yet.
+`pull` always uses `git subtree pull --squash`. That keeps upstream history
+out of the monorepo's parent chain, which avoids later `git subtree split`/
+`push` failures at the cost of one squashed commit per pull.
 
 ### Sync states
 
@@ -67,7 +52,7 @@ own `git-subtree-dir`/`git-subtree-split` commit trailers, not from
 literal commit ancestry -- squash commits are never real ancestors of the
 remote's raw history) against the current local and remote content:
 
-- **`not-connected`** -- the remote has never been fetched.
+- **never fetched** -- the remote has no tracking refs yet.
 - **`missing-at-head`** -- the remote doesn't have a branch matching your
   current branch name.
 - **`up to date`** -- nothing to do.
@@ -89,28 +74,22 @@ remote's raw history) against the current local and remote content:
 
 ## Bootstrapping a new subtree
 
-Every other command in this tool is meant to be safe to run repeatedly without
-thinking about it. The very first connection between a subtree and its remote isn't
--- it depends on which of a few situations you're in, and `git subtrees init
-<path> <url>` figures it out on its own.
+Use `git subtrees init <path> <url>` for the one-time add/adopt step.
 
 If no remote named `<path>` exists yet, it registers one pointing at `<url>`
 (equivalent to `git remote add <path> <url>`). If one already exists but points
 somewhere else, it refuses and tells you to fix it -- it never rewrites an
-existing remote's URL (`git remote set-url`, and check for a leftover `--push`
-override, are the manual fix).
+existing remote's URL.
 
 Then, based on local and remote state, it does exactly one of:
 
-- **Nothing**, if the remote has no matching branch yet -- there's nothing to connect,
-  your next `git subtrees push <path>` will populate it.
-- **Nothing**, if `<path>` already has content and is already connected.
+- **Nothing**, if the remote has no matching branch yet -- your first
+  `git subtrees push <path>` can create it.
+- **Nothing**, if `<path>` already has subtree history.
 - **`git subtree add --prefix=<path> <url> <branch>`**, if `<path>` doesn't
   exist locally yet and the remote has independent history to bring in.
 - **Tells you to move `<path>` aside yourself**, if `<path>` already has content that
-  shares no common ancestor with the remote branch -- typically because something
-  landed on the remote independently before you ever connected it (someone edited a
-  file on GitHub, a bot's PR got merged, and so on). Reconciling unrelated local and
+  shares no common ancestor with the remote branch. Reconciling unrelated local and
   remote content is a judgment call this tool won't make for you:
 
       mv <path> <path>.bak
@@ -159,10 +138,8 @@ Requires:
 
     nix develop
 
-drops you into a shell with `git`, `bats`, `shellcheck`, `shfmt`, and
-`just` on `PATH`, plus the repo's own `git-subtrees` (the live working
-copy, not an installed one) prepended to `PATH` so `git subtrees ...`
-immediately picks up uncommitted edits.
+drops you into a shell with all development tools and the live
+`git-subtrees` entrypoint on `PATH`.
 
     just lint       # shellcheck
     just fmt-check  # shfmt -d
@@ -170,30 +147,18 @@ immediately picks up uncommitted edits.
     just test       # bats --recursive test
     just ci         # lint + fmt-check + test, same as CI
 
-Tests live under `test/`, one `*.bats` file per command plus `common.bats`
-(discovery/classification) and `cli.bats` (real subprocess smoke tests
-against the entrypoint, including through a symlink). `test/scenarios/`
-holds named, self-documenting git-history fixtures -- each folder has a
-`README.md` describing the exact history shape and a `setup.bash` building
-it -- rather than ad hoc fixtures buried inside test files.
+Tests live under `test/`; scenario fixtures live under `test/scenarios/`.
 
     playground/setup.sh
 
-builds a throwaway sandbox (a scratch monorepo plus fixture bare "upstream"
-repos, defaulting to a fresh `mktemp -d`) for manually exercising commands
-against realistic state. Run it from inside `nix develop`; when run
-interactively it prints a short walkthrough and drops you straight into a
-shell inside the built monorepo -- `exit` to leave it. Pass `--no-shell` to
-just print the sandbox path instead (the default when not run
-interactively, e.g. piped or scripted).
+builds a throwaway monorepo plus fixture upstream repos for manual testing.
+Run it inside `nix develop`; pass `--no-shell` to print the sandbox path
+without entering a shell.
 
     simulate-remote-change <path> [message]
 
-also on `PATH` inside `nix develop`. Pushes one new commit to `<path>`'s
-remote from outside the monorepo, so `git subtrees status`/`fetch`/`pull`
-have real upstream activity to react to -- handy for repeating the
-pull scenario on demand instead of only getting it once at playground
-build time.
+also on `PATH` inside `nix develop`, pushes one new upstream commit so you
+can repeat a pull scenario on demand.
 
 ## License
 

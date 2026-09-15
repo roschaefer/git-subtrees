@@ -26,7 +26,7 @@ pull_one() {
 
   case "$SUBTREE_STATE" in
     not-connected)
-      log_warn "$path: still not connected after fetch -- does the remote exist?"
+      log_warn "$path: still not fetched after fetch -- does the remote exist?"
       return 1
       ;;
     missing-at-head)

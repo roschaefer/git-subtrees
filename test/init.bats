@@ -6,7 +6,7 @@ setup() {
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
 
-@test "init: connects a fresh empty path" {
+@test "init: adds a fresh empty path" {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
@@ -31,16 +31,16 @@ setup() {
   [[ "$output" == *"already registered"* ]]
 }
 
-@test "init: no-op when already connected" {
+@test "init: no-op when already initialized" {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
-  connect_subtree "$monorepo" "$upstream" "vendor/a"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
   cd "$monorepo"
 
   run cmd_init "vendor/a" "$upstream"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"already connected"* ]]
+  [[ "$output" == *"already initialized"* ]]
 }
 
 @test "init: refuses unrelated pre-existing content with move-aside guidance" {
@@ -62,5 +62,5 @@ setup() {
 
   run cmd_init "vendor/a" "$upstream"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"nothing to connect"* ]]
+  [[ "$output" == *"nothing to add"* ]]
 }

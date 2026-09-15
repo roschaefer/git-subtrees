@@ -1,10 +1,10 @@
 # Scenario: diverged-unrelated-history
 
-Both sides moved since connecting, but the remote's entire history was
+Both sides moved since the subtree was added, but the remote's entire history was
 then replaced with something that shares no ancestry with what was last
 synced -- e.g. the upstream repo was rebuilt from scratch.
 
-- **Monorepo (`vendor/a`)**: connected at `seed`, then one local commit
+- **Monorepo (`vendor/a`)**: added at `seed`, then one local commit
   under `vendor/a`.
 - **Remote**: the original bare repo is deleted and recreated from
   scratch with a brand new, unrelated root commit.

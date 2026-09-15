@@ -1,7 +1,7 @@
 # Scenario: init-unrelated-content
 
 A directory that will become a subtree already has content, and that
-content has nothing to do with the remote being connected -- the "move it
+content has nothing to do with the remote being added -- the "move it
 aside" case for `git subtrees init`.
 
 - **Monorepo**: `vendor/a` exists with a locally-created file, committed,

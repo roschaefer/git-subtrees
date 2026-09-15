@@ -1,11 +1,11 @@
 # Scenario: pull-ahead
 
-The remote gained a commit since connecting; the monorepo hasn't touched
+The remote gained a commit since the subtree was added; the monorepo hasn't touched
 the subtree path.
 
-- **Monorepo (`vendor/a`)**: connected at `seed`, no local changes since.
+- **Monorepo (`vendor/a`)**: added at `seed`, no local changes since.
 - **Remote**: `seed`, then one more commit (`upstream change`).
-- **Common ancestor**: yes -- the connection point (`seed`).
+- **Common ancestor**: yes -- the add point (`seed`).
 
 The scenario also fetches once during setup, so `refs/remotes/vendor/a/*`
 already reflects the remote's new commit (mirroring what a real `status`

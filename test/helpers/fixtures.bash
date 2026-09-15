@@ -3,7 +3,7 @@
 # tests exercise -- see each scenario folder's README.md.
 
 make_bare_repo() {
-  git init -q --bare "$1"
+  git init -q --bare --initial-branch=main "$1"
 }
 
 # Clones $1, appends line $2 to file.txt (creating it if needed), commits
@@ -16,6 +16,12 @@ seed_bare_repo() {
     cd "$tmp"
     git config user.name "Test"
     git config user.email "test@example.com"
+    if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+      git fetch -q origin "$branch"
+      git checkout -q -B "$branch" "origin/$branch"
+    else
+      git checkout -q -B "$branch"
+    fi
     echo "$msg" >>file.txt
     git add file.txt
     git commit -q -m "$msg"
@@ -28,7 +34,7 @@ seed_bare_repo() {
 # runners have no global one) and one initial commit. Does not cd --
 # callers use their own cwd or a subshell.
 init_monorepo() {
-  git init -q "$1"
+  git init -q -b main "$1"
   (
     cd "$1"
     git config user.name "Test"
@@ -37,10 +43,10 @@ init_monorepo() {
   )
 }
 
-# Connects bare repo $2 to $3 inside monorepo $1 via raw git plumbing --
+# Adds bare repo $2 to $3 inside monorepo $1 via raw git plumbing --
 # deliberately NOT via cmd_init, so other commands' tests don't depend on
 # init's own correctness or implementation order.
-connect_subtree() {
+add_subtree() {
   local monorepo="$1" remote_url="$2" path="$3" branch="${4:-main}"
   (
     cd "$monorepo"

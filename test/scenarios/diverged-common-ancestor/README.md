@@ -1,12 +1,12 @@
 # Scenario: diverged-common-ancestor
 
-Both sides moved independently since connecting, but they still share a
-real sync point: the connection commit itself.
+Both sides moved independently since the subtree was added, but they still
+share a real sync point: the add commit itself.
 
-- **Monorepo (`vendor/a`)**: connected at `seed`, then one local commit
+- **Monorepo (`vendor/a`)**: added at `seed`, then one local commit
   under `vendor/a`.
 - **Remote**: `seed`, then one independent upstream commit.
-- **Common ancestor**: yes -- `seed`, the point they were connected at.
+- **Common ancestor**: yes -- `seed`, the point they were added at.
 
 This is the "ordinary" divergence case: `git subtrees pull` still attempts
 its normal `git subtree pull --squash`, which may hit a normal merge
