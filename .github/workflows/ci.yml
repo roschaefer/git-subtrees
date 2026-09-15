@@ -14,10 +14,10 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: lint
-        run: nix develop --command make lint
+        run: nix develop --command just lint
 
       - name: fmt-check
-        run: nix develop --command make fmt-check
+        run: nix develop --command just fmt-check
 
       - name: test
-        run: nix develop --command make test
+        run: nix develop --command just test

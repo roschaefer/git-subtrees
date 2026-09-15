@@ -19,7 +19,7 @@
             pkgs.shellcheck
             pkgs.shfmt
             pkgs.bashInteractive
-            pkgs.gnumake
+            pkgs.just
           ];
 
           shellHook = ''

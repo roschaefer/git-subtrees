@@ -159,16 +159,16 @@ Requires:
 
     nix develop
 
-drops you into a shell with `git`, `bats`, `shellcheck`, and `shfmt` on
-`PATH`, plus the repo's own `git-subtrees` (the live working copy, not an
-installed one) prepended to `PATH` so `git subtrees ...` immediately picks
-up uncommitted edits.
+drops you into a shell with `git`, `bats`, `shellcheck`, `shfmt`, and
+`just` on `PATH`, plus the repo's own `git-subtrees` (the live working
+copy, not an installed one) prepended to `PATH` so `git subtrees ...`
+immediately picks up uncommitted edits.
 
-    make lint       # shellcheck
-    make fmt-check  # shfmt -d
-    make fmt        # shfmt -w
-    make test       # bats --recursive test
-    make ci         # lint + fmt-check + test, same as CI
+    just lint       # shellcheck
+    just fmt-check  # shfmt -d
+    just fmt        # shfmt -w
+    just test       # bats --recursive test
+    just ci         # lint + fmt-check + test, same as CI
 
 Tests live under `test/`, one `*.bats` file per command plus `common.bats`
 (discovery/classification) and `cli.bats` (real subprocess smoke tests
