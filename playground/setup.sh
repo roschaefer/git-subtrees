@@ -6,15 +6,20 @@ set -euo pipefail
 
 dir=""
 dir_given=0
+no_shell=0
 
 usage() {
   cat <<'EOF'
-usage: playground/setup.sh [--dir <path>]
+usage: playground/setup.sh [--dir <path>] [--no-shell]
 
 Builds a scratch monorepo plus fixture bare "upstream" repos for manually
-running git-subtrees commands against realistic state.
+running git-subtrees commands against realistic state. When run
+interactively, drops you straight into a shell inside the built monorepo
+-- there's no path to copy-paste.
 
   --dir <path>   build in <path> instead of a fresh mktemp -d
+  --no-shell     print the sandbox path and exit instead of exec'ing a
+                 shell into it (the default when not run interactively)
 EOF
 }
 
@@ -24,6 +29,10 @@ while [[ $# -gt 0 ]]; do
       dir="$2"
       dir_given=1
       shift 2
+      ;;
+    --no-shell)
+      no_shell=1
+      shift
       ;;
     -h | --help)
       usage
@@ -98,6 +107,36 @@ git init -q "$mono_dir"
 seed_bare_repo "$upstream_dir/pkg-a.git" "pkg-a: a second commit, after connecting"
 git -C "$mono_dir" fetch -q vendor/pkg-a
 
+print_reminder() {
+  if [[ $dir_given -eq 0 ]]; then
+    echo
+    echo "(this is a fresh mktemp -d sandbox -- re-run this script any time for a clean one)"
+  fi
+}
+
+if [[ $no_shell -eq 0 && -t 0 && -t 1 ]]; then
+  cat <<EOF
+
+=== playground ready: $mono_dir ===
+
+Try:
+  git subtrees status
+  git subtrees init vendor/pkg-b $upstream_dir/pkg-b.git
+  git subtrees fetch
+  git subtrees pull
+  echo "local edit" >> vendor/pkg-a/file.txt && git add vendor/pkg-a && git commit -m "local edit"
+  git subtrees push
+  git subtrees status
+
+Dropping you into a shell there now -- 'exit' to leave it.
+EOF
+  print_reminder
+  cd "$mono_dir"
+  exec "${SHELL:-bash}"
+fi
+
+# Non-interactive (piped, scripted, or --no-shell): print the path instead
+# of exec'ing into it, so the caller can still find and use the sandbox.
 cat <<EOF
 
 === playground ready ===
@@ -115,7 +154,4 @@ Try:
   git subtrees status
 EOF
 
-if [[ $dir_given -eq 0 ]]; then
-  echo
-  echo "(this is a fresh mktemp -d sandbox -- re-run this script any time for a clean one)"
-fi
+print_reminder
