@@ -181,8 +181,11 @@ it -- rather than ad hoc fixtures buried inside test files.
 
 builds a throwaway sandbox (a scratch monorepo plus fixture bare "upstream"
 repos, defaulting to a fresh `mktemp -d`) for manually exercising commands
-against realistic state. Run it from inside `nix develop`; it prints a `cd`
-command and a short walkthrough when it's done.
+against realistic state. Run it from inside `nix develop`; when run
+interactively it prints a short walkthrough and drops you straight into a
+shell inside the built monorepo -- `exit` to leave it. Pass `--no-shell` to
+just print the sandbox path instead (the default when not run
+interactively, e.g. piped or scripted).
 
 ## License
 
