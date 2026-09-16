@@ -11,6 +11,8 @@ when no paths are given.
 EOF
 }
 
+status_warn() { printf '??   %s\n' "$*"; }
+
 # Classifies and prints the status of one subtree path.
 format_status_line() {
   local path="$1" branch="$2"
@@ -18,10 +20,10 @@ format_status_line() {
 
   case "$SUBTREE_STATE" in
     not-connected)
-      log_warn "$path -> $SUBTREE_URL (never fetched -- run 'git subtrees fetch $path')"
+      status_warn "$path -> $SUBTREE_URL (never fetched -- run 'git subtrees fetch $path')"
       ;;
     missing-at-head)
-      log_warn "$path -> $SUBTREE_URL (remote has no '$branch' branch)"
+      status_warn "$path -> $SUBTREE_URL (remote has no '$branch' branch)"
       ;;
     up-to-date)
       log_ok "$path -> $SUBTREE_URL (up to date)"
@@ -41,9 +43,14 @@ format_status_line() {
       esac
       ;;
     unrelated-history)
-      log_warn "$path -> $SUBTREE_URL (unrelated history -- see 'git subtrees pull $path' for options)"
+      status_warn "$path -> $SUBTREE_URL (unrelated history -- see 'git subtrees pull $path' for options)"
       ;;
   esac
+}
+
+format_unmapped_remote_line() {
+  local remote="$1"
+  printf '??   %s -> (no mapping)\n' "$remote"
 }
 
 cmd_status() {
@@ -57,8 +64,11 @@ cmd_status() {
   branch="$(current_branch)"
 
   local paths=("$@")
+  local explicit_paths=0
   if [[ ${#paths[@]} -eq 0 ]]; then
     paths=("${ALL_PATHS[@]}")
+  else
+    explicit_paths=1
   fi
 
   local path
@@ -66,10 +76,12 @@ cmd_status() {
     is_subtree_path "$path" || die "not a subtree path: $path"
   done
 
-  local remote
-  for remote in "${ALL_REMOTES[@]}"; do
-    is_subtree_path "$remote" || log_warn "$remote -> (no mapping)"
-  done
+  if ((explicit_paths == 0)); then
+    local remote
+    for remote in "${ALL_REMOTES[@]}"; do
+      is_subtree_path "$remote" || format_unmapped_remote_line "$remote"
+    done
+  fi
 
   for path in "${paths[@]}"; do
     format_status_line "$path" "$branch"

@@ -56,6 +56,19 @@ setup() {
   [[ "$output" == *"never fetched"* ]]
 }
 
+@test "status: reports not-connected on stdout" {
+  scenario_not_connected "$monorepo" "$upstream"
+  cd "$monorepo"
+  local stderr="$BATS_TEST_TMPDIR/status.stderr"
+
+  run bash -c '"$1" status 2>"$2"' _ "$BATS_TEST_DIRNAME/../git-subtrees" "$stderr"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a"* ]]
+  [[ "$output" == *"never fetched"* ]]
+  [[ ! -s "$stderr" ]]
+}
+
 @test "status: shows no mapping for a remote with no matching directory" {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
@@ -64,6 +77,18 @@ setup() {
   git remote add ghost "$upstream"
   run cmd_status
   [[ "$output" == *"ghost -> (no mapping)"* ]]
+}
+
+@test "status: does not print unmapped remote URL" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add origin "https://user:token@example.com/repo.git"
+
+  run cmd_status
+
+  [[ "$output" == *"origin -> (no mapping)"* ]]
+  [[ "$output" != *"token"* ]]
+  [[ "$output" != *"example.com"* ]]
 }
 
 @test "status: path arguments restrict output to those paths" {
@@ -75,9 +100,13 @@ setup() {
   make_bare_repo "$upstream_b"
   seed_bare_repo "$upstream_b" "seed-b"
   add_subtree "$monorepo" "$upstream_b" "vendor/b"
+  local unmapped="$BATS_TEST_TMPDIR/unmapped.git"
+  make_bare_repo "$unmapped"
   cd "$monorepo"
+  git remote add ghost "$unmapped"
 
   run cmd_status vendor/a
   [[ "$output" == *"vendor/a"* ]]
   [[ "$output" != *"vendor/b"* ]]
+  [[ "$output" != *"ghost"* ]]
 }
