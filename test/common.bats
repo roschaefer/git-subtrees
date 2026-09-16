@@ -28,6 +28,73 @@ setup() {
   [[ " ${ALL_PATHS[*]} " != *" ghost "* ]]
 }
 
+@test "discover_subtrees finds nested sibling remotes" {
+  make_bare_repo "$upstream"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  mkdir -p packages/alpha packages/bravo packages/charlie
+  git remote add packages/alpha "$upstream"
+  git remote add packages/bravo "$upstream"
+  git remote add packages/charlie "$upstream"
+
+  discover_subtrees
+
+  [[ " ${ALL_PATHS[*]} " == *" packages/alpha "* ]]
+  [[ " ${ALL_PATHS[*]} " == *" packages/bravo "* ]]
+  [[ " ${ALL_PATHS[*]} " == *" packages/charlie "* ]]
+}
+
+@test "find_merge_commit_for_sync is safe with pipefail after later history" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  local i
+  for i in $(seq 1 200); do
+    git commit -q --allow-empty -m "later $i"
+  done
+  local sync_commit
+  sync_commit="$(find_sync_commit vendor/a)"
+
+  run bash -c 'set -euo pipefail; source "$1"; find_merge_commit_for_sync "$2"' \
+    _ "$BATS_TEST_DIRNAME/../lib/common.sh" "$sync_commit"
+
+  [ "$status" -eq 0 ]
+  [[ -n "$output" ]]
+  [[ "$(git rev-list --count "$sync_commit..HEAD")" -lt "$(git rev-list --count HEAD)" ]]
+}
+
+@test "find_merge_commit_for_sync bounds its walk to the sync commit's ancestry path" {
+  # The pre-sync commits below are reachable from HEAD only through the
+  # merge commit's *other* parent, not from sync_commit -- so a plain
+  # "sync_commit..HEAD" range (without --ancestry-path) still includes them,
+  # even though they aren't on the path we actually care about.
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  local i
+  for i in $(seq 1 200); do
+    git commit -q --allow-empty -m "earlier $i"
+  done
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  local sync_commit merge_commit git_rev_list_log
+  sync_commit="$(find_sync_commit vendor/a)"
+  git_rev_list_log="$BATS_TEST_TMPDIR/git-rev-list.log"
+
+  # Shadow `git` to capture the exact rev-list invocation
+  # find_merge_commit_for_sync makes, without changing its behavior.
+  git() {
+    if [[ "$1" == "rev-list" ]]; then
+      printf '%s\n' "$*" >>"$git_rev_list_log"
+    fi
+    command git "$@"
+  }
+
+  merge_commit="$(find_merge_commit_for_sync "$sync_commit")"
+
+  [[ "$merge_commit" == "$(command git rev-parse HEAD)" ]]
+  grep -qx -- "rev-list --ancestry-path $sync_commit..HEAD --parents" "$git_rev_list_log"
+}
+
 @test "discover_subtrees is empty with zero remotes" {
   init_monorepo "$monorepo"
   cd "$monorepo"

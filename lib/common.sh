@@ -79,8 +79,8 @@ sync_split_sha() {
 # point after which "local changes under path" are measured.
 find_merge_commit_for_sync() {
   local sync_commit="$1"
-  git rev-list HEAD --parents | awk -v s="$sync_commit" \
-    '{for (i=2;i<=NF;i++) if ($i==s) {print $1; exit}}'
+  git rev-list --ancestry-path "$sync_commit..HEAD" --parents | awk -v s="$sync_commit" \
+    'found {next} {for (i=2;i<=NF;i++) if ($i==s) {print $1; found=1; next}}'
 }
 
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
