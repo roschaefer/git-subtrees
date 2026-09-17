@@ -82,6 +82,17 @@ setup() {
   [[ "$output" == *"mv vendor/a vendor/a.bak"* ]]
 }
 
+@test "init: fails on a genuine fetch failure, distinct from a missing branch" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+
+  run cmd_init "vendor/a" "$BATS_TEST_TMPDIR/missing.git"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"vendor/a: fetch failed"* ]]
+  [[ "$output" != *"nothing to add"* ]]
+}
+
 @test "init: no-op when remote has no matching branch yet" {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
@@ -92,4 +103,21 @@ setup() {
   run cmd_init "vendor/a" "$upstream"
   [ "$status" -eq 0 ]
   [[ "$output" == *"nothing to add"* ]]
+  [[ "$output" != *"fetch failed"* ]]
+  [[ "$output" != *"couldn't find remote ref"* ]]
+}
+
+@test "init: exact branch probe does not match branch-name suffixes" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "team feature" "team/feature"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git checkout -q -b feature
+
+  run cmd_init "vendor/a" "$upstream"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"nothing to add"* ]]
+  [[ "$output" != *"fetch failed"* ]]
+  [[ "$output" != *"couldn't find remote ref"* ]]
 }

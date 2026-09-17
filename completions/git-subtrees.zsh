@@ -28,6 +28,7 @@ _git-subtrees() {
     'init:one-time bootstrap of a path/url pair'
     'fetch:fetch every subtree'\''s remote'
     'pull:squash-merge upstream changes into subtree paths'
+    'prune:prune stale remote-tracking refs'
     'push:push local subtree changes upstream'
     'status:show sync state of every remote'
   )
@@ -41,6 +42,16 @@ _git-subtrees() {
     fetch | pull | push | status)
       paths=("${(@f)$(__git_subtrees_paths)}")
       _describe -t paths 'subtree path' paths
+      ;;
+    prune)
+      paths=("${(@f)$(__git_subtrees_paths)}")
+      _arguments \
+        '(-n --dry-run)'{-n,--dry-run}'[show stale refs without pruning]' \
+        '(-h --help)'{-h,--help}'[show usage]' \
+        '*:subtree path:->paths'
+      if [[ $state == paths ]]; then
+        _describe -t paths 'subtree path' paths
+      fi
       ;;
     init)
       if ((CURRENT == 3)); then

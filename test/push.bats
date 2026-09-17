@@ -32,6 +32,17 @@ setup() {
   [ "$before" = "$after" ]
 }
 
+@test "push_one: refuses a path git-subtree cannot use, without attempting a push" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  classify_subtree() { SUBTREE_STATE="push"; SUBTREE_TARGET_REF="refs/heads/main"; }
+
+  run push_one "-n" "main"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git-subtree cannot use a name starting with '-'"* ]]
+}
+
 @test "push: unrelated-history does not attempt a push, prints guidance" {
   scenario_diverged_unrelated_history "$monorepo" "$upstream"
   cd "$monorepo"
@@ -43,17 +54,6 @@ setup() {
   [ "$before" = "$after" ]
   [[ "$output" == *"share no history"* ]]
   [[ "$output" == *"git push --force vendor/a"* ]]
-}
-
-@test "push_one: refuses a path git-subtree cannot use, without attempting a push" {
-  init_monorepo "$monorepo"
-  cd "$monorepo"
-  classify_subtree() { SUBTREE_STATE="push"; SUBTREE_TARGET_REF="refs/heads/main"; }
-
-  run push_one "-n" "main"
-
-  [ "$status" -eq 1 ]
-  [[ "$output" == *"git-subtree cannot use a name starting with '-'"* ]]
 }
 
 @test "push_one: refuses a branch git-subtree cannot use, without classifying" {

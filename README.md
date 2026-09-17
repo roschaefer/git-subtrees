@@ -34,15 +34,23 @@ branch to sync with that same feature branch on each touched remote.
 
     git subtrees status    # show every registered remote, what it maps to, and its sync state
     git subtrees fetch     # fetch all subtree remotes in parallel
-    git subtrees pull      # bring in remote changes with git subtree pull --squash
+    git subtrees pull      # bring in remote changes with a squash merge
+    git subtrees prune     # prune stale remote-tracking refs for subtree remotes
     git subtrees push      # push subtrees with local changes to their remotes
     git subtrees init      # one-time bootstrap of a single path/remote pair
 
 Run `git subtrees <command> --help` for options.
 
-`pull` always uses `git subtree pull --squash`. That keeps upstream history
-out of the monorepo's parent chain, which avoids later `git subtree split`/
-`push` failures at the cost of one squashed commit per pull.
+`pull` always performs a squash merge. It fetches the selected subtree branch
+explicitly, then merges the fetched tracking ref without refetching during the
+serial merge phase. If that branch fetch fails (for example because the
+upstream branch was deleted), `pull` fails too, matching the failure shape of
+plain `git subtree pull <remote> <branch>`.
+
+`prune` delegates to `git remote prune` for each selected subtree remote. It
+follows the remote's configured fetch refspecs, so explicit non-branch mappings
+such as tags can be pruned too. Use `git subtrees prune --dry-run` to inspect
+what Git would delete first.
 
 ### Sync states
 
@@ -137,8 +145,8 @@ Requires:
 
 Completions for bash, zsh, and fish live under `completions/`. They
 complete both `git subtrees <TAB>` and the standalone `git-subtrees <TAB>`,
-and offer discovered subtree paths as arguments to `fetch`/`pull`/`push`/
-`status`.
+and offer discovered subtree paths as arguments to `fetch`/`pull`/`prune`/
+`push`/`status`.
 
     # bash -- source from ~/.bashrc, or drop into a directory bash-completion
     # loads eagerly (e.g. /etc/bash_completion.d/), since git's own dispatch
