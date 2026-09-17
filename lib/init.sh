@@ -17,17 +17,23 @@ cmd_init() {
     usage_init
     exit 0
   fi
+  [[ "${1:-}" == "--" ]] && shift
 
   local path="${1:-}" url="${2:-}"
   if [[ -z "$path" || -z "$url" ]]; then
     usage_init >&2
     exit 1
   fi
+  usable_with_git_subtree "$path" || die "$path: git-subtree cannot use a name starting with '-' -- rename it and re-run"
 
   cd_to_repo_root
 
+  local branch
+  branch="$(current_branch)"
+  usable_with_git_subtree "$branch" || die "$branch: git-subtree cannot use a branch name starting with '-' -- rename it and re-run"
+
   local existing_url
-  existing_url="$(git remote get-url "$path" 2>/dev/null || true)"
+  existing_url="$(git remote get-url -- "$path" 2>/dev/null || true)"
 
   if [[ -n "$existing_url" && "$existing_url" != "$url" ]]; then
     die "$path: remote already registered, pointing at '$existing_url' (not '$url')"
@@ -35,14 +41,11 @@ cmd_init() {
 
   if [[ -z "$existing_url" ]]; then
     log_step "$path: registering remote -> $url"
-    git remote add "$path" "$url"
+    git remote add -- "$path" "$url"
   fi
 
   log_step "$path: fetching"
   fetch_one "$path" || die "$path: fetch failed"
-
-  local branch
-  branch="$(current_branch)"
 
   classify_subtree "$path" "$branch"
 

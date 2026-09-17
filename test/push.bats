@@ -44,3 +44,25 @@ setup() {
   [[ "$output" == *"share no history"* ]]
   [[ "$output" == *"git push --force vendor/a"* ]]
 }
+
+@test "push_one: refuses a path git-subtree cannot use, without attempting a push" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  classify_subtree() { SUBTREE_STATE="push"; SUBTREE_TARGET_REF="refs/heads/main"; }
+
+  run push_one "-n" "main"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git-subtree cannot use a name starting with '-'"* ]]
+}
+
+@test "push_one: refuses a branch git-subtree cannot use, without classifying" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  classify_subtree() { echo "classify_subtree should not have been called" >&2; return 1; }
+
+  run push_one "vendor/a" "-n"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git-subtree cannot use a branch name starting with '-'"* ]]
+}

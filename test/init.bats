@@ -19,6 +19,35 @@ setup() {
   [ "$output" = "$upstream" ]
 }
 
+@test "init: -- reaches a path named like a flag, but git-subtree still can't use it" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+
+  run cmd_init -- -h "$upstream"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git-subtree cannot use a name starting with '-'"* ]]
+  run git remote get-url -- -h
+  [ "$status" -eq 2 ]
+}
+
+@test "init: refuses when the current branch name starts with '-', without registering a remote" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git symbolic-ref HEAD refs/heads/-weird
+
+  run cmd_init "vendor/a" "$upstream"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git-subtree cannot use a branch name starting with '-'"* ]]
+  run git remote get-url vendor/a
+  [ "$status" -eq 2 ]
+}
+
 @test "init: refuses when remote exists pointing elsewhere" {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
