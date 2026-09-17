@@ -51,6 +51,7 @@ cmd_push() {
     exit 0
   fi
 
+  cd_to_repo_root
   discover_subtrees
   local branch
   branch="$(current_branch)"

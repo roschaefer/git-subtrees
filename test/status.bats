@@ -110,3 +110,12 @@ setup() {
   [[ "$output" != *"vendor/b"* ]]
   [[ "$output" != *"ghost"* ]]
 }
+
+@test "status: run from inside a subtree directory reports the same as from the root" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo/vendor/a"
+  run cmd_status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a"*"(up to date)"* ]]
+  [[ "$output" != *"no mapping"* ]]
+}

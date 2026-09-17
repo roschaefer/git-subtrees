@@ -24,6 +24,8 @@ cmd_init() {
     exit 1
   fi
 
+  cd_to_repo_root
+
   local existing_url
   existing_url="$(git remote get-url "$path" 2>/dev/null || true)"
 
