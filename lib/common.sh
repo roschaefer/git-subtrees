@@ -62,6 +62,25 @@ target_ref_for() {
   printf 'refs/remotes/%s/%s\n' "$1" "$2"
 }
 
+# False for a name starting with '-'. git-subtree's own OPTS_SPEC parsing
+# (git rev-parse --parseopt) matches a handful of dash-prefixed values as
+# its own flags no matter where they appear (-h/--help, -q/--quiet, ...),
+# and --prefix's value separately reaches an internal `dirname` call that
+# rejects any leading '-' outright (verified against the installed
+# git-subtree contrib script). Both make `git subtree add/pull/push
+# --prefix=<name>` unusable for such a name, regardless of "--" at this
+# wrapper's own call sites -- see fix(cli): terminate options before
+# remote-name arguments. The same parsing applies to the branch argument
+# git-subtree takes, not just --prefix/REPOSITORY, so init/pull/push check
+# both the path and the current branch before invoking git-subtree, and do
+# so upfront (before any other state-dependent branching) so the failure is
+# a clear, early error instead of a confusing crash partway through
+# (fetch/status have no such restriction, since they only ever call plain
+# git builtins).
+usable_with_git_subtree() {
+  [[ "$1" != -* ]]
+}
+
 regex_escape() {
   printf '%s' "$1" | sed -e 's/[.[\*^$()+?{}|\\]/\\&/g'
 }
@@ -118,7 +137,7 @@ classify_subtree() {
   local path="$1" branch="$2" remote="$1"
   SUBTREE_STATE=""
   SUBTREE_TARGET_REF=""
-  SUBTREE_URL="$(git remote get-url "$remote" 2>/dev/null || true)"
+  SUBTREE_URL="$(git remote get-url -- "$remote" 2>/dev/null || true)"
 
   if [[ -z "$(git for-each-ref "refs/remotes/$remote/")" ]]; then
     SUBTREE_STATE="not-connected"

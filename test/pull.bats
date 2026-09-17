@@ -47,3 +47,26 @@ setup() {
   [[ "$output" == *"share no history"* ]]
   [[ "$output" == *"git subtree add --prefix=vendor/a"* ]]
 }
+
+@test "pull_one: refuses a path git-subtree cannot use, without attempting a merge" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  fetch_one() { return 0; }
+  classify_subtree() { SUBTREE_STATE="pull"; SUBTREE_TARGET_REF="refs/heads/main"; }
+
+  run pull_one "-n" "main"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git-subtree cannot use a name starting with '-'"* ]]
+}
+
+@test "pull_one: refuses a branch git-subtree cannot use, without fetching" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  fetch_one() { echo "fetch_one should not have been called" >&2; return 1; }
+
+  run pull_one "vendor/a" "-n"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git-subtree cannot use a branch name starting with '-'"* ]]
+}

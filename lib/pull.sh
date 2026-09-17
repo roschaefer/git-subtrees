@@ -20,6 +20,16 @@ EOF
 # Factored out from cmd_pull's loop so bats can exercise one path directly.
 pull_one() {
   local path="$1" branch="$2"
+
+  if ! usable_with_git_subtree "$path"; then
+    log_err "$path: git-subtree cannot use a name starting with '-' -- rename it and re-run"
+    return 1
+  fi
+  if ! usable_with_git_subtree "$branch"; then
+    log_err "$branch: git-subtree cannot use a branch name starting with '-' -- rename it and re-run"
+    return 1
+  fi
+
   fetch_one "$path" || return 1
 
   classify_subtree "$path" "$branch"
@@ -56,6 +66,7 @@ cmd_pull() {
     usage_pull
     exit 0
   fi
+  [[ "${1:-}" == "--" ]] && shift
 
   cd_to_repo_root
   discover_subtrees
