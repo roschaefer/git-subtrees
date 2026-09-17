@@ -127,10 +127,9 @@ top-level `git-subtrees` file gets symlinked.
 
 Requires:
 
-- Bash >= 4.2 (uses `mapfile` and `declare -g`). Linux distributions
-  ship this by default; macOS's system bash is 3.2, so install a newer
-  one (e.g. `brew install bash`) and make sure it's found first on
-  `PATH`.
+- Bash >= 4.4. Modern Linux distributions ship this by default; macOS's
+  system bash is 3.2, so install a newer one (e.g. `brew install bash`)
+  and make sure it's found first on `PATH`.
 - The `git subtree` contrib command, bundled with git on most Linux
   distributions -- check with `git subtree --help`.
 

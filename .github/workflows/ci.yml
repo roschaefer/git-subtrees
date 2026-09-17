@@ -39,6 +39,7 @@ jobs:
       # revisions -- prebuilt binaries from cache.nixos.org, no compiling --
       # so every {bash, git} pair in the matrix is exercised, not just
       # whatever pairing a single nixpkgs snapshot happens to ship.
+      # nixos-21.05 supplies bashInteractive 4.4, the documented floor.
       - name: test
         run: |
           nix shell \
