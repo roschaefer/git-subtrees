@@ -45,7 +45,25 @@ cmd_init() {
   fi
 
   log_step "$path: fetching"
-  fetch_one "$path" || die "$path: fetch failed"
+  # Deferred: `git fetch` and fetch_one's own log_err already write a fatal
+  # diagnostic to stderr the moment the branch fetch fails, before we get a
+  # chance to check whether that's actually the documented no-op below.
+  # Capture it instead of letting it print immediately, and only replay it
+  # once remote_missing_branch has ruled out the missing-branch case --
+  # otherwise a successful (exit 0) no-op still leaves a misleading "fetch
+  # failed" on stderr.
+  local fetch_err fetch_status=0
+  {
+    fetch_err="$(fetch_one "$path" "$branch" 2>&1 1>&3)" || fetch_status=$?
+  } 3>&1
+  if ((fetch_status != 0)); then
+    if remote_missing_branch "$path" "$branch"; then
+      log_ok "$path: remote has no '$branch' branch yet -- nothing to add"
+      return 0
+    fi
+    printf '%s\n' "$fetch_err" >&2
+    die "$path: fetch failed"
+  fi
 
   classify_subtree "$path" "$branch"
 

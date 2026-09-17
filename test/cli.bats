@@ -29,7 +29,7 @@ setup() {
 }
 
 @test "cli: each subcommand's own -h works" {
-  for cmd in init fetch pull push status; do
+  for cmd in init fetch pull prune push status; do
     run "$entrypoint" "$cmd" -h
     [ "$status" -eq 0 ]
     [[ "$output" == *"usage: git subtrees $cmd"* ]]

@@ -23,6 +23,8 @@ source "$script_dir/lib/init.sh"
 source "$script_dir/lib/fetch.sh"
 # shellcheck source=lib/pull.sh
 source "$script_dir/lib/pull.sh"
+# shellcheck source=lib/prune.sh
+source "$script_dir/lib/prune.sh"
 # shellcheck source=lib/push.sh
 source "$script_dir/lib/push.sh"
 # shellcheck source=lib/status.sh
@@ -41,6 +43,7 @@ Commands:
   init <path> <url>   one-time bootstrap: register a remote and add/adopt it
   fetch [path...]     fetch every subtree's remote (default: all)
   pull [path...]      squash-merge upstream changes into subtree paths
+  prune [path...]     prune stale remote-tracking refs for subtree remotes
   push [path...]      push local subtree changes upstream
   status [path...]    show sync state of every remote
 
@@ -70,6 +73,10 @@ main() {
     pull)
       shift
       cmd_pull "$@"
+      ;;
+    prune)
+      shift
+      cmd_prune "$@"
       ;;
     push)
       shift

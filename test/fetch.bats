@@ -35,6 +35,29 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "fetch: does not prune stale refs or local tags" {
+  local upstream="$BATS_TEST_TMPDIR/upstream.git"
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  seed_bare_repo "$upstream" "temporary" "temporary"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  mkdir -p vendor/a
+  git remote add vendor/a "$upstream"
+  git fetch -q vendor/a
+  git tag local-only
+  git config --add remote.vendor/a.fetch "+refs/tags/*:refs/tags/*"
+  git -C "$upstream" update-ref -d refs/heads/temporary
+
+  run cmd_fetch
+
+  [ "$status" -eq 0 ]
+  run git show-ref --verify --quiet refs/remotes/vendor/a/temporary
+  [ "$status" -eq 0 ]
+  run git show-ref --verify --quiet refs/tags/local-only
+  [ "$status" -eq 0 ]
+}
+
 @test "fetch: one remote failing does not abort the others, exit reflects the failure" {
   local up_a="$BATS_TEST_TMPDIR/up-a.git" up_b="$BATS_TEST_TMPDIR/up-b.git"
   make_bare_repo "$up_a"
@@ -51,4 +74,34 @@ setup() {
   run git show-ref --verify --quiet refs/remotes/vendor/a/main
   [ "$status" -eq 0 ]
   [[ "$fetch_output" == *"Failed: vendor/b"* ]]
+}
+
+@test "fetch_one preserves diagnostics for branch fetch failures" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$BATS_TEST_TMPDIR/missing.git"
+
+  run fetch_one vendor/a main
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"does not appear to be a git repository"* ]]
+  [[ "$output" == *"vendor/a fetch failed"* ]]
+}
+
+@test "fetch_all_parallel treats --quiet as a path" {
+  fetch_one() { log_ok "$1 fetched"; }
+
+  fetch_all_parallel --quiet
+
+  [[ ${#FETCH_PATHS[@]} -eq 1 ]]
+  [[ "${FETCH_PATHS[0]}" == "--quiet" ]]
+  [[ "${FETCH_OUTPUT[0]}" == "ok   --quiet fetched" ]]
+}
+
+@test "fetch_all_parallel_for_branch passes explicit branch to fetch_one" {
+  fetch_one() { log_ok "$1:$2 fetched"; }
+
+  fetch_all_parallel_for_branch feature vendor/a
+
+  [[ "${FETCH_OUTPUT[0]}" == "ok   vendor/a:feature fetched" ]]
 }
