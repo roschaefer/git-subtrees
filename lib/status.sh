@@ -58,6 +58,7 @@ cmd_status() {
     usage_status
     exit 0
   fi
+  [[ "${1:-}" == "--" ]] && shift
 
   cd_to_repo_root
   discover_subtrees

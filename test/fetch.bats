@@ -20,6 +20,21 @@ setup() {
   [ ! -f .git/FETCH_HEAD ]
 }
 
+@test "fetch: a subtree remote named like a flag is fetched, not parsed as one" {
+  local upstream="$BATS_TEST_TMPDIR/upstream.git"
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  mkdir -p -- -n
+  git remote add -- -n "$upstream"
+
+  run cmd_fetch -- -n
+  [ "$status" -eq 0 ]
+  run git show-ref --verify --quiet refs/remotes/-n/main
+  [ "$status" -eq 0 ]
+}
+
 @test "fetch: one remote failing does not abort the others, exit reflects the failure" {
   local up_a="$BATS_TEST_TMPDIR/up-a.git" up_b="$BATS_TEST_TMPDIR/up-b.git"
   make_bare_repo "$up_a"

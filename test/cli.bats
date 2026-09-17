@@ -36,6 +36,17 @@ setup() {
   done
 }
 
+@test "cli: -- terminates options so a path named like a flag is treated literally" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+
+  for cmd in fetch pull push status; do
+    run "$entrypoint" "$cmd" -- -h
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not a subtree path: -h"* ]]
+  done
+}
+
 @test "cli: full command set works when invoked through a symlink, as the real install does" {
   local bindir="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$bindir"

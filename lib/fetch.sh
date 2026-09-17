@@ -15,7 +15,7 @@ EOF
 # in cmd_fetch.
 fetch_one() {
   local remote="$1"
-  if git fetch --quiet --no-write-fetch-head "$remote"; then
+  if git fetch --quiet --no-write-fetch-head -- "$remote"; then
     log_ok "$remote fetched"
   else
     log_err "$remote fetch failed"
@@ -28,6 +28,7 @@ cmd_fetch() {
     usage_fetch
     exit 0
   fi
+  [[ "${1:-}" == "--" ]] && shift
 
   cd_to_repo_root
   discover_subtrees

@@ -114,6 +114,15 @@ setup() {
   [ "$status" -eq 1 ]
 }
 
+@test "usable_with_git_subtree is false only for a name starting with '-'" {
+  run usable_with_git_subtree "vendor/a"
+  [ "$status" -eq 0 ]
+  run usable_with_git_subtree "-n"
+  [ "$status" -eq 1 ]
+  run usable_with_git_subtree "--dry-run"
+  [ "$status" -eq 1 ]
+}
+
 @test "classify_subtree: up-to-date" {
   scenario_up_to_date "$monorepo" "$upstream"
   cd "$monorepo"
@@ -161,6 +170,19 @@ setup() {
   cd "$monorepo"
   classify_subtree "vendor/a" "main"
   [ "$SUBTREE_STATE" = "unrelated-history" ]
+}
+
+@test "classify_subtree: resolves the URL of a remote named like a flag" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  mkdir -p -- -n
+  git remote add -- -n "$upstream"
+  git fetch -q -- -n
+
+  classify_subtree "-n" "main"
+  [ "$SUBTREE_URL" = "$upstream" ]
 }
 
 @test "classify_subtree: not-connected" {
