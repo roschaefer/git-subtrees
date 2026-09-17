@@ -26,6 +26,50 @@ setup() {
   [[ "$output" == *"nothing to pull"* ]]
 }
 
+@test "pull: fetches the current branch even with a narrowed remote refspec" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  seed_bare_repo "$upstream" "feature change" "feature"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  cd "$monorepo"
+  git checkout -q -b feature
+  git config --unset-all remote.vendor/a.fetch
+  git config --add remote.vendor/a.fetch "+refs/heads/main:refs/remotes/vendor/a/main"
+
+  run cmd_pull vendor/a
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a: pulled"* ]]
+  run grep -qx "feature change" vendor/a/file.txt
+  [ "$status" -eq 0 ]
+}
+
+@test "pull: fails when the current branch was deleted upstream" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "feature seed" "feature"
+  init_monorepo "$monorepo"
+  (
+    cd "$monorepo"
+    git checkout -q -b feature
+  )
+  add_subtree "$monorepo" "$upstream" "vendor/a" "feature"
+  cd "$monorepo"
+  git tag local-only
+  git config --add remote.vendor/a.fetch "+refs/tags/*:refs/tags/*"
+  git -C "$upstream" update-ref -d refs/heads/feature
+
+  run cmd_pull vendor/a
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"couldn't find remote ref refs/heads/feature"* ]]
+  [[ "$output" == *"Failed: vendor/a"* ]]
+  run git show-ref --verify --quiet refs/remotes/vendor/a/feature
+  [ "$status" -eq 0 ]
+  run git show-ref --verify --quiet refs/tags/local-only
+  [ "$status" -eq 0 ]
+}
+
 @test "pull: ordinary conflict leaves MERGE_HEAD, resolved via plain git commit" {
   scenario_diverged_common_ancestor "$monorepo" "$upstream"
   cd "$monorepo"
@@ -51,10 +95,9 @@ setup() {
 @test "pull_one: refuses a path git-subtree cannot use, without attempting a merge" {
   init_monorepo "$monorepo"
   cd "$monorepo"
-  fetch_one() { return 0; }
-  classify_subtree() { SUBTREE_STATE="pull"; SUBTREE_TARGET_REF="refs/heads/main"; }
+  classify_subtree() { SUBTREE_STATE="pull"; SUBTREE_TARGET_REF="refs/heads/main"; SUBTREE_SPLIT_SHA=""; }
 
-  run pull_one "-n" "main"
+  run pull_one "-n" "main" skip-fetch
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"git-subtree cannot use a name starting with '-'"* ]]
@@ -69,4 +112,45 @@ setup() {
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"git-subtree cannot use a branch name starting with '-'"* ]]
+}
+
+@test "pull: rechecks ancestry after fetching a missing split object" {
+  local monorepo_origin="$BATS_TEST_TMPDIR/monorepo-origin.git"
+  local fresh_monorepo="$BATS_TEST_TMPDIR/fresh-monorepo"
+  local rewrite="$BATS_TEST_TMPDIR/rewrite"
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  local old_split
+  old_split="$(
+    cd "$monorepo"
+    sync_split_sha "$(find_sync_commit vendor/a)"
+  )"
+  git -C "$upstream" tag old-split "$old_split"
+  git clone -q --bare "$monorepo" "$monorepo_origin"
+  git clone -q "$monorepo_origin" "$fresh_monorepo"
+  (
+    git clone -q "$upstream" "$rewrite"
+    cd "$rewrite"
+    git config user.name "Test"
+    git config user.email "test@example.com"
+    git checkout -q --orphan unrelated-main
+    rm -f file.txt
+    echo "brand new unrelated history" >file.txt
+    git add file.txt
+    git commit -q -m "brand new unrelated history"
+    git push -q --force origin HEAD:main
+  )
+  cd "$fresh_monorepo"
+  git config user.name "Test"
+  git config user.email "test@example.com"
+  git remote add vendor/a "$upstream"
+  git config --add remote.vendor/a.fetch "+refs/tags/*:refs/tags/*"
+
+  run cmd_pull vendor/a
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"share no history"* ]]
+  [ ! -f .git/MERGE_HEAD ]
 }

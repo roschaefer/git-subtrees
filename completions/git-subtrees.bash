@@ -28,7 +28,7 @@ _git_subtrees() {
   [[ "${COMP_WORDS[0]}" == git ]] && start=2
 
   if ((COMP_CWORD == start)); then
-    mapfile -t COMPREPLY < <(compgen -W "init fetch pull push status -h --help" -- "$cur")
+    mapfile -t COMPREPLY < <(compgen -W "init fetch pull prune push status -h --help" -- "$cur")
     return
   fi
 
@@ -36,6 +36,9 @@ _git_subtrees() {
   case "$cmd" in
     fetch | pull | push | status)
       mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -h --help" -- "$cur")
+      ;;
+    prune)
+      mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -n --dry-run -h --help" -- "$cur")
       ;;
     init)
       if ((COMP_CWORD == start + 1)); then
