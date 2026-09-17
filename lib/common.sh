@@ -5,6 +5,17 @@
 declare -ga ALL_REMOTES=()
 declare -ga ALL_PATHS=()
 
+# Every subtree path/remote-mapping check, and every git-subtree invocation
+# (--prefix=<path>, HEAD:<path>, etc.), is only meaningful relative to the
+# repo root. Without this, running any command from inside a subtree
+# directory (or any other subdirectory) makes every remote look unmapped,
+# since worktree directory names are then resolved against the wrong cwd.
+cd_to_repo_root() {
+  local toplevel
+  toplevel="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
+  cd "$toplevel" || die "failed to cd to repo root: $toplevel"
+}
+
 log_ok() { printf 'ok   %s\n' "$*"; }
 log_warn() { printf '??   %s\n' "$*" >&2; }
 log_err() { printf '!!   %s\n' "$*" >&2; }

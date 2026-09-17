@@ -29,6 +29,7 @@ cmd_fetch() {
     exit 0
   fi
 
+  cd_to_repo_root
   discover_subtrees
 
   local paths=("$@")
