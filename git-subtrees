@@ -7,6 +7,11 @@
 # subtree remote.
 set -euo pipefail
 
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
+  printf '!!   git-subtrees requires Bash >= 4.4 (found %s)\n' "$BASH_VERSION" >&2
+  exit 1
+fi
+
 real_path="$(readlink -f "${BASH_SOURCE[0]}")"
 script_dir="$(cd "$(dirname "$real_path")" && pwd)"
 
