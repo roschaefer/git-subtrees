@@ -64,20 +64,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # concurrency above only takes effect once this job starts, which is
+      # after lint-test/compat-matrix finish -- an older push's prerequisite
+      # jobs can still finish after a newer push has already published, so
+      # this re-checks that github.sha is still main's tip before publishing
+      # to avoid force-moving edge backward.
+      - name: Verify this commit is still the tip of main
+        id: check
+        run: |
+          git fetch origin main
+          current_tip="$(git rev-parse origin/main)"
+          if [[ "$current_tip" != "${{ github.sha }}" ]]; then
+            echo "main has moved on to $current_tip; skipping edge release for ${{ github.sha }}"
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build tarball
+        if: steps.check.outputs.is_latest == 'true'
         run: |
           mkdir -p dist
           git archive --format=tar.gz --prefix=git-subtrees/ -o dist/git-subtrees-edge.tar.gz HEAD
 
-      # action-gh-release updates an existing release for a tag in place,
-      # but it won't move a tag that already exists to a new commit -- that
-      # part is a plain git operation, not release logic.
       - name: Move edge tag to HEAD
+        if: steps.check.outputs.is_latest == 'true'
         run: |
           git tag -f edge
           git push origin edge --force
 
       - name: Publish edge release
+        if: steps.check.outputs.is_latest == 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: edge

@@ -137,6 +137,7 @@ Without cloning the full repo, download the `edge` release instead --
 a tarball rebuilt on every push to `main`, so it always tracks the
 latest commit rather than a specific version:
 
+    mkdir -p ~/.local/share ~/.local/bin
     curl -fL https://github.com/roschaefer/git-subtrees/releases/download/edge/git-subtrees-edge.tar.gz \
       | tar -xz -C ~/.local/share
     ln -s ~/.local/share/git-subtrees/git-subtrees ~/.local/bin/git-subtrees
