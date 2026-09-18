@@ -20,3 +20,20 @@ missing-at-head (changed vs base 'main')"
   actual="$(printf '%s\n' "$output" | sed -n 's/^  => //p')"
   [ "$actual" = "$expected" ]
 }
+
+@test "walkthrough: ignores the developer's global git config" {
+  # A global config that would make every quiet `git commit` step fail.
+  local hostile="$BATS_TEST_TMPDIR/hostile-gitconfig"
+  printf '[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = /nonexistent\n' >"$hostile"
+  GIT_CONFIG_GLOBAL="$hostile" run bash \
+    "$BATS_TEST_DIRNAME/../docs/last-synced-commit/walkthrough.sh" \
+    --dir "$BATS_TEST_TMPDIR/walkthrough"
+  [ "$status" -eq 0 ]
+}
+
+@test "walkthrough: --dir without a value prints usage instead of an unbound variable" {
+  run bash "$BATS_TEST_DIRNAME/../docs/last-synced-commit/walkthrough.sh" --dir
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"--dir needs a path"* ]]
+  [[ "$output" == *"usage:"* ]]
+}
