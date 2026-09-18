@@ -127,7 +127,15 @@ local_changes_since_sync() {
     return
   fi
   merge_commit="$(find_merge_commit_for_sync "$sync_commit")"
-  if [[ -z "$merge_commit" ]]; then
+  # A squash sync is brought in by a merge commit (2+ parents). A plain,
+  # non-squash `git subtree add` makes the sync commit itself the merge, so
+  # find_merge_commit_for_sync would return its first child -- a baseline
+  # that already contains the very change being looked for. Without a real
+  # merge commit there is nothing trustworthy to diff against, and unlike
+  # classify_subtree's own "assume changed" fallback, answering "unknown"
+  # here keeps push from guessing in either direction.
+  if [[ -z "$merge_commit" ]] ||
+    (($(git rev-list --parents -n1 "$merge_commit" | wc -w) < 3)); then
     echo unknown
   elif git diff --quiet "$merge_commit" HEAD -- "$path"; then
     echo no

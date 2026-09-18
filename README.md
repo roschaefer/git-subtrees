@@ -64,8 +64,9 @@ remote's raw history) against the current local and remote content:
 - **`missing-at-head`** -- the remote doesn't have a branch matching your
   current branch name. `push` creates it only if the subtree has local
   changes since its last sync; an unchanged subtree is skipped, and one
-  that was never synced via `git subtree` is refused with the manual
-  `git subtree push` command printed.
+  with no squash sync point (never added or pulled via `git subtree
+  --squash`) is refused with the manual `git subtree push` command
+  printed.
 - **`up to date`** -- nothing to do.
 - **`push`** / **`pull`** -- only one side moved since the last sync.
 - **`diverged`** -- both sides moved, but they still share the sync point

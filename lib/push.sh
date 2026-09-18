@@ -25,7 +25,7 @@ EOF
 # remote branch on a guess.
 print_unknown_changes_guidance() {
   local path="$1" branch="$2"
-  log_warn "$path: remote has no '$branch' branch, and local changes can't be determined (never synced via git subtree)"
+  log_warn "$path: remote has no '$branch' branch, and local changes can't be determined (no squash sync point -- not added or pulled via 'git subtree --squash')"
   cat >&2 <<EOF
 
   # to create '$branch' on the remote from $path anyway:

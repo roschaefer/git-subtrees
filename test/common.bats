@@ -219,6 +219,22 @@ setup() {
   [ "$SUBTREE_LOCAL_CHANGES" = "unknown" ]
 }
 
+@test "classify_subtree: missing-at-head, local changes unknown for a non-squash subtree" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$upstream"
+  git fetch -q vendor/a
+  git subtree add -q --prefix=vendor/a vendor/a main
+  git checkout -q -b feature
+  echo "local change" >>vendor/a/file.txt
+  git commit -q -am "local change"
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "missing-at-head" ]
+  [ "$SUBTREE_LOCAL_CHANGES" = "unknown" ]
+}
+
 @test "classify_subtree: SUBTREE_LOCAL_CHANGES stays empty unless missing-at-head" {
   scenario_push_ahead "$monorepo" "$upstream"
   cd "$monorepo"
