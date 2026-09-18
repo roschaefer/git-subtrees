@@ -4,6 +4,9 @@ setup() {
   load 'scenarios/up-to-date/setup'
   load 'scenarios/push-ahead/setup'
   load 'scenarios/diverged-unrelated-history/setup'
+  load 'scenarios/feature-branch-unchanged/setup'
+  load 'scenarios/feature-branch-changed/setup'
+  load 'scenarios/feature-branch-never-synced/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -65,4 +68,55 @@ setup() {
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"git-subtree cannot use a branch name starting with '-'"* ]]
+}
+
+@test "push: unchanged subtree on a branch the remote lacks is skipped, no branch created" {
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  cd "$monorepo"
+  run push_one "vendor/a" "feature"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"nothing to push"* ]]
+  run git -C "$upstream" rev-parse --verify --quiet refs/heads/feature
+  [ "$status" -ne 0 ]
+}
+
+@test "push: changed subtree on a branch the remote lacks creates that branch" {
+  scenario_feature_branch_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  run push_one "vendor/a" "feature"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"this push will create it"* ]]
+
+  local verify="$BATS_TEST_TMPDIR/verify"
+  git clone -q -b feature "$upstream" "$verify" 2>/dev/null
+  run grep -qx "local change" "$verify/file.txt"
+  [ "$status" -eq 0 ]
+}
+
+@test "push: never-synced subtree on a branch the remote lacks is refused with the manual command" {
+  scenario_feature_branch_never_synced "$monorepo" "$upstream"
+  cd "$monorepo"
+  run push_one "vendor/a" "feature"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git subtree push --prefix=vendor/a vendor/a feature"* ]]
+  run git -C "$upstream" rev-parse --verify --quiet refs/heads/feature
+  [ "$status" -ne 0 ]
+}
+
+@test "cmd_push: only creates the branch for the subtree that changed" {
+  scenario_feature_branch_changed "$monorepo" "$upstream"
+  local upstream_b="$BATS_TEST_TMPDIR/upstream-b.git"
+  make_bare_repo "$upstream_b"
+  seed_bare_repo "$upstream_b" "seed"
+  git -C "$monorepo" checkout -q main
+  add_subtree "$monorepo" "$upstream_b" "vendor/b"
+  git -C "$monorepo" checkout -q feature
+  git -C "$monorepo" merge -q --no-edit main
+  cd "$monorepo"
+
+  run cmd_push
+  [ "$status" -eq 0 ]
+  git -C "$upstream" rev-parse --verify --quiet refs/heads/feature
+  run git -C "$upstream_b" rev-parse --verify --quiet refs/heads/feature
+  [ "$status" -ne 0 ]
 }

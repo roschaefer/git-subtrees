@@ -8,8 +8,29 @@ Pushes local subtree changes upstream. Defaults to every discovered
 subtree with changes when no paths are given. Shares one SSH connection
 (ControlMaster/ControlPersist) across pushes to the same host.
 
+If the remote has no branch named like the current one, push creates it --
+but only for a subtree with local changes since its last sync. Unchanged
+subtrees are skipped, so working on a feature branch doesn't spawn empty
+branches on every remote. A subtree that was never synced via git subtree
+can't be checked for changes; push refuses it and prints the manual
+command instead.
+
 On an unrelated-history divergence (no shared ancestor at all), push does
 not attempt to push -- it prints manual recovery commands instead.
+EOF
+}
+
+# Prints the manual command for a subtree whose local changes can't be
+# determined (no sync commit to compare against), so push won't create a
+# remote branch on a guess.
+print_unknown_changes_guidance() {
+  local path="$1" branch="$2"
+  log_warn "$path: remote has no '$branch' branch, and local changes can't be determined (never synced via git subtree)"
+  cat >&2 <<EOF
+
+  # to create '$branch' on the remote from $path anyway:
+  git subtree push --prefix=$path $path $branch
+
 EOF
 }
 
@@ -43,6 +64,16 @@ push_one() {
       return 1
       ;;
     missing-at-head)
+      case "$SUBTREE_LOCAL_CHANGES" in
+        no)
+          log_ok "$path: nothing to push (remote has no '$branch' branch, no local changes)"
+          return 0
+          ;;
+        unknown)
+          print_unknown_changes_guidance "$path" "$branch"
+          return 1
+          ;;
+      esac
       log_warn "$path: remote has no '$branch' branch yet -- this push will create it"
       ;;
     push | diverged) ;;

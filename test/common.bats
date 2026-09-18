@@ -7,6 +7,9 @@ setup() {
   load 'scenarios/diverged-common-ancestor/setup'
   load 'scenarios/diverged-unrelated-history/setup'
   load 'scenarios/not-connected/setup'
+  load 'scenarios/feature-branch-unchanged/setup'
+  load 'scenarios/feature-branch-changed/setup'
+  load 'scenarios/feature-branch-never-synced/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -192,15 +195,33 @@ setup() {
   [ "$SUBTREE_STATE" = "not-connected" ]
 }
 
-@test "classify_subtree: missing-at-head" {
-  make_bare_repo "$upstream"
-  seed_bare_repo "$upstream" "seed"
-  init_monorepo "$monorepo"
+@test "classify_subtree: missing-at-head, no local changes" {
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
   cd "$monorepo"
-  git remote add vendor/a "$upstream"
-  git fetch -q vendor/a
-  git checkout -q -b feature
-  mkdir -p vendor/a
   classify_subtree "vendor/a" "feature"
   [ "$SUBTREE_STATE" = "missing-at-head" ]
+  [ "$SUBTREE_LOCAL_CHANGES" = "no" ]
+}
+
+@test "classify_subtree: missing-at-head, local changes" {
+  scenario_feature_branch_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "missing-at-head" ]
+  [ "$SUBTREE_LOCAL_CHANGES" = "yes" ]
+}
+
+@test "classify_subtree: missing-at-head, local changes unknown (never synced)" {
+  scenario_feature_branch_never_synced "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "missing-at-head" ]
+  [ "$SUBTREE_LOCAL_CHANGES" = "unknown" ]
+}
+
+@test "classify_subtree: SUBTREE_LOCAL_CHANGES stays empty unless missing-at-head" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "main"
+  [ -z "$SUBTREE_LOCAL_CHANGES" ]
 }

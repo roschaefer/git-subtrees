@@ -113,10 +113,36 @@ find_merge_commit_for_sync() {
     'found {next} {for (i=2;i<=NF;i++) if ($i==s) {print $1; found=1; next}}'
 }
 
+# Whether <path> has local changes since it was last synced, judged purely
+# from local history -- it never looks at the remote, so it still answers
+# when the remote has no branch to compare against. Prints one of:
+#   yes      the path differs from what the last sync brought in
+#   no       the path is unchanged since the last sync
+#   unknown  there is no usable sync point (never synced via git subtree)
+local_changes_since_sync() {
+  local path="$1" sync_commit merge_commit
+  sync_commit="$(find_sync_commit "$path")"
+  if [[ -z "$sync_commit" ]]; then
+    echo unknown
+    return
+  fi
+  merge_commit="$(find_merge_commit_for_sync "$sync_commit")"
+  if [[ -z "$merge_commit" ]]; then
+    echo unknown
+  elif git diff --quiet "$merge_commit" HEAD -- "$path"; then
+    echo no
+  else
+    echo yes
+  fi
+}
+
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
 # Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
 # globals rather than returning a value, since callers (status, push, pull)
-# need them.
+# need them. When SUBTREE_STATE is missing-at-head there is nothing on the
+# remote to compare against, so it also sets SUBTREE_LOCAL_CHANGES (yes, no
+# or unknown -- see local_changes_since_sync) to say whether there is
+# anything worth pushing to a new branch.
 #
 # SUBTREE_STATE is one of:
 #   not-connected     remote has never been fetched (no tracking refs at all)
@@ -139,6 +165,7 @@ classify_subtree() {
   SUBTREE_STATE=""
   SUBTREE_TARGET_REF=""
   SUBTREE_SPLIT_SHA=""
+  SUBTREE_LOCAL_CHANGES=""
   SUBTREE_URL="$(git remote get-url -- "$remote" 2>/dev/null || true)"
 
   if [[ -z "$(git for-each-ref "refs/remotes/$remote/")" ]]; then
@@ -152,6 +179,7 @@ classify_subtree() {
 
   if ! git show-ref --verify --quiet "$target_ref"; then
     SUBTREE_STATE="missing-at-head"
+    SUBTREE_LOCAL_CHANGES="$(local_changes_since_sync "$path")"
     return
   fi
 
