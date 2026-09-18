@@ -40,12 +40,12 @@ contract. The current local branch name is the sync target on every
 subtree remote.
 
 Commands:
-  init <path> <url>   one-time bootstrap: register a remote and add/adopt it
-  fetch [path...]     fetch every subtree's remote (default: all)
-  pull [path...]      squash-merge upstream changes into subtree paths
-  prune [path...]     prune stale remote-tracking refs for subtree remotes
-  push [path...]      push local subtree changes upstream
-  status [path...]    show sync state of every remote
+  init <path> <url>              one-time bootstrap: register a remote and add/adopt it
+  fetch [path...]                fetch every subtree's remote (default: all)
+  pull [path...]                 squash-merge upstream changes into subtree paths
+  prune [path...]                prune stale remote-tracking refs for subtree remotes
+  push [--base <b>] [path...]    push local subtree changes upstream
+  status [--base <b>] [path...]  show sync state of every remote
 
 Run 'git subtrees <command> -h' for command-specific help.
 EOF

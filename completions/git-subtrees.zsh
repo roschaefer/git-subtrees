@@ -39,9 +39,19 @@ _git-subtrees() {
   fi
 
   case ${words[2]} in
-    fetch | pull | push | status)
+    fetch | pull)
       paths=("${(@f)$(__git_subtrees_paths)}")
       _describe -t paths 'subtree path' paths
+      ;;
+    push | status)
+      paths=("${(@f)$(__git_subtrees_paths)}")
+      _arguments \
+        '--base=[monorepo base branch to compare against]:branch:__git_branch_names' \
+        '(-h --help)'{-h,--help}'[show usage]' \
+        '*:subtree path:->paths'
+      if [[ $state == paths ]]; then
+        _describe -t paths 'subtree path' paths
+      fi
       ;;
     prune)
       paths=("${(@f)$(__git_subtrees_paths)}")

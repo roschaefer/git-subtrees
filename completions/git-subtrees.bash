@@ -34,8 +34,15 @@ _git_subtrees() {
 
   cmd="${COMP_WORDS[start]}"
   case "$cmd" in
-    fetch | pull | push | status)
+    fetch | pull)
       mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -h --help" -- "$cur")
+      ;;
+    push | status)
+      if [[ "${COMP_WORDS[COMP_CWORD - 1]}" == --base ]]; then
+        mapfile -t COMPREPLY < <(compgen -W "$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -- "$cur")
+      else
+        mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) --base -h --help" -- "$cur")
+      fi
       ;;
     prune)
       mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -n --dry-run -h --help" -- "$cur")

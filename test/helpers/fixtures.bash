@@ -56,6 +56,13 @@ add_subtree() {
   )
 }
 
+# Ignores the developer's own git config (e.g. a global init.defaultBranch),
+# so tests about how the base branch is resolved behave the same everywhere.
+# Bats runs each test in its own subshell, so this never leaks.
+hermetic_git_config() {
+  export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+}
+
 # Sources every lib/*.sh file so tests can call functions directly, mirroring
 # the order the real entrypoint uses.
 load_lib() {
