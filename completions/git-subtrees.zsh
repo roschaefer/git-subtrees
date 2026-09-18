@@ -20,6 +20,15 @@ __git_subtrees_paths() {
   done
 }
 
+# Branches usable as --base: local and remote-tracking. Listed here rather
+# than through zsh's own __git_subtrees_branches, which only exists once `_git`
+# has been loaded -- not guaranteed when completing the standalone command.
+__git_subtrees_branches() {
+  local -a branches
+  branches=("${(@f)$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)}")
+  _describe -t branches 'base branch' branches
+}
+
 _git-subtrees() {
   local curcontext="$curcontext" state line
   local -a commands paths
@@ -46,7 +55,7 @@ _git-subtrees() {
     push | status)
       paths=("${(@f)$(__git_subtrees_paths)}")
       _arguments \
-        '--base=[monorepo base branch to compare against]:branch:__git_branch_names' \
+        '--base=[monorepo base branch to compare against]:branch:__git_subtrees_branches' \
         '(-h --help)'{-h,--help}'[show usage]' \
         '*:subtree path:->paths'
       if [[ $state == paths ]]; then

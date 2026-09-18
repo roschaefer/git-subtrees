@@ -4,6 +4,9 @@
 
 declare -ga ALL_REMOTES=()
 declare -ga ALL_PATHS=()
+# Results of parse_base_args.
+declare -g BASE_ARG=""
+declare -ga PATH_ARGS=()
 
 # Every subtree path/remote-mapping check, and every git-subtree invocation
 # (--prefix=<path>, HEAD:<path>, etc.), is only meaningful relative to the
@@ -32,6 +35,44 @@ current_branch() {
   branch="$(git symbolic-ref --quiet --short HEAD)" ||
     die "not on a branch (detached HEAD) -- git subtrees requires a named branch"
   printf '%s\n' "$branch"
+}
+
+# Shared option parsing for the commands that take `[--base <branch>]
+# [path...]` (push, status). Sets BASE_ARG and PATH_ARGS. $1 names the
+# command's usage function, which is run (then exit 0) for -h/--help; the
+# remaining arguments are the command line. Everything after `--`, and any
+# other argument, is a path -- so a subtree named like a flag still works.
+parse_base_args() {
+  local usage_fn="$1"
+  shift
+  BASE_ARG=""
+  PATH_ARGS=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h | --help)
+        "$usage_fn"
+        exit 0
+        ;;
+      --base)
+        [[ $# -ge 2 && -n "$2" ]] || die "--base needs a branch name"
+        BASE_ARG="$2"
+        shift
+        ;;
+      --base=*)
+        BASE_ARG="${1#--base=}"
+        [[ -n "$BASE_ARG" ]] || die "--base needs a branch name"
+        ;;
+      --)
+        shift
+        PATH_ARGS+=("$@")
+        break
+        ;;
+      *)
+        PATH_ARGS+=("$1")
+        ;;
+    esac
+    shift
+  done
 }
 
 # Populates ALL_REMOTES (every git remote) and ALL_PATHS (the subset whose
