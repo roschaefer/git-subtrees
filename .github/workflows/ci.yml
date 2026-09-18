@@ -51,3 +51,55 @@ jobs:
               echo "git:  $(git --version)"
               bats --recursive test
             '
+
+  edge-release:
+    needs: [lint-test, compat-matrix]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: edge-release
+      cancel-in-progress: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # concurrency above only takes effect once this job starts, which is
+      # after lint-test/compat-matrix finish -- an older push's prerequisite
+      # jobs can still finish after a newer push has already published, so
+      # this re-checks that github.sha is still main's tip before publishing
+      # to avoid force-moving edge backward.
+      - name: Verify this commit is still the tip of main
+        id: check
+        run: |
+          git fetch origin main
+          current_tip="$(git rev-parse origin/main)"
+          if [[ "$current_tip" != "${{ github.sha }}" ]]; then
+            echo "main has moved on to $current_tip; skipping edge release for ${{ github.sha }}"
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build tarball
+        if: steps.check.outputs.is_latest == 'true'
+        run: |
+          mkdir -p dist
+          git archive --format=tar.gz --prefix=git-subtrees/ -o dist/git-subtrees-edge.tar.gz HEAD
+
+      - name: Move edge tag to HEAD
+        if: steps.check.outputs.is_latest == 'true'
+        run: |
+          git tag -f edge
+          git push origin edge --force
+
+      - name: Publish edge release
+        if: steps.check.outputs.is_latest == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: edge
+          name: "Edge (rolling)"
+          body: "Rolling build of the latest commit on main (${{ github.sha }})."
+          prerelease: true
+          make_latest: false
+          files: dist/git-subtrees-edge.tar.gz
