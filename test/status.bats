@@ -7,6 +7,8 @@ setup() {
   load 'scenarios/diverged-common-ancestor/setup'
   load 'scenarios/diverged-unrelated-history/setup'
   load 'scenarios/not-connected/setup'
+  load 'scenarios/feature-branch-unchanged/setup'
+  load 'scenarios/feature-branch-changed/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -118,4 +120,32 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"vendor/a"*"(up to date)"* ]]
   [[ "$output" != *"no mapping"* ]]
+}
+
+@test "status: a branch missing on the remote is reported against the default branch (up to date)" {
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a"*"(up to date vs default branch 'main')"* ]]
+}
+
+@test "status: a branch missing on the remote is reported against the default branch (push)" {
+  scenario_feature_branch_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status
+  [[ "$output" == *"vendor/a"*"(push vs default branch 'main')"* ]]
+}
+
+@test "status: warns when the remote has neither the branch nor the default branch" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed" other
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  mkdir -p vendor/a
+  git remote add vendor/a "$upstream"
+  git fetch -q vendor/a
+  git checkout -q -b feature
+  run cmd_status
+  [[ "$output" == *"neither 'feature' nor default branch 'main'"* ]]
 }

@@ -17,19 +17,25 @@ status_warn() { printf '??   %s\n' "$*"; }
 format_status_line() {
   local path="$1" branch="$2"
   classify_subtree "$path" "$branch"
+  # With no branch of its own on the remote the state is measured against
+  # the default branch; say so, since it isn't a same-branch comparison.
+  local vs=""
+  if [[ -n "$SUBTREE_BASELINE_BRANCH" ]]; then
+    vs=" vs default branch '$SUBTREE_BASELINE_BRANCH'"
+  fi
 
   case "$SUBTREE_STATE" in
     not-connected)
       status_warn "$path -> $SUBTREE_URL (never fetched -- run 'git subtrees fetch $path')"
       ;;
     missing-at-head)
-      status_warn "$path -> $SUBTREE_URL (remote has no '$branch' branch)"
+      status_warn "$path -> $SUBTREE_URL (remote has neither '$branch' nor default branch '$(default_branch)')"
       ;;
     up-to-date)
-      log_ok "$path -> $SUBTREE_URL (up to date)"
+      log_ok "$path -> $SUBTREE_URL (up to date$vs)"
       ;;
     push | pull | diverged)
-      log_ok "$path -> $SUBTREE_URL ($SUBTREE_STATE)"
+      log_ok "$path -> $SUBTREE_URL ($SUBTREE_STATE$vs)"
       local local_tree
       local_tree="$(git rev-parse "HEAD:$path" 2>/dev/null || true)"
       # Diff order follows what the pending operation would apply, so

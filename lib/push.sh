@@ -8,6 +8,13 @@ Pushes local subtree changes upstream. Defaults to every discovered
 subtree with changes when no paths are given. Shares one SSH connection
 (ControlMaster/ControlPersist) across pushes to the same host.
 
+If the remote has no branch named like the current one, push compares
+against the remote's default branch (main, or 'git config
+subtrees.defaultBranch') and creates the branch only if the subtree has
+something the default branch lacks. If the remote has neither, push
+refuses -- unless the current branch is the default branch itself, in
+which case it creates it.
+
 On an unrelated-history divergence (no shared ancestor at all), push does
 not attempt to push -- it prints manual recovery commands instead.
 EOF
@@ -35,17 +42,34 @@ push_one() {
       return 1
       ;;
     up-to-date | pull)
-      log_ok "$path: nothing to push"
+      if [[ -n "$SUBTREE_BASELINE_BRANCH" ]]; then
+        log_ok "$path: nothing to push (no '$branch' branch on remote; nothing beyond its '$SUBTREE_BASELINE_BRANCH')"
+      else
+        log_ok "$path: nothing to push"
+      fi
       return 0
       ;;
     unrelated-history)
-      print_unrelated_history_guidance "$path" "$branch"
+      print_unrelated_history_guidance "$path" "$branch" "${SUBTREE_BASELINE_BRANCH:-$branch}"
       return 1
       ;;
     missing-at-head)
+      # Neither $branch nor the default branch is on the remote. Creating
+      # the default branch is the bootstrap case; creating anything else
+      # would put a branch on a remote whose contract branch is missing.
+      local default
+      default="$(default_branch)"
+      if [[ "$branch" != "$default" ]]; then
+        log_err "$path: remote has neither '$branch' nor the default branch '$default' -- push '$default' first (or set git config subtrees.defaultBranch)"
+        return 1
+      fi
       log_warn "$path: remote has no '$branch' branch yet -- this push will create it"
       ;;
-    push | diverged) ;;
+    push | diverged)
+      if [[ -n "$SUBTREE_BASELINE_BRANCH" ]]; then
+        log_warn "$path: remote has no '$branch' branch yet -- this push will create it"
+      fi
+      ;;
   esac
 
   if ! git subtree push --prefix="$path" "$path" "$branch"; then

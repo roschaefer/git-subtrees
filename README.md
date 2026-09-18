@@ -30,6 +30,17 @@ Assumption two: **the local branch name is the remote branch name.**
 remote. Work on `main` to sync with remote `main`; check out a feature
 branch to sync with that same feature branch on each touched remote.
 
+Assumption three: **every remote has the same default branch**, `main`
+unless `git config subtrees.defaultBranch <name>` says otherwise. When a
+remote has no branch named like yours yet, `status` and `push` measure the
+subtree against the default branch instead (shown as `vs default branch
+'main'`). It's a read-only baseline -- it says what the remote already has,
+never where a push goes. `push` creates your branch on the remote only if
+the subtree has something the default branch lacks, so working on a feature
+branch doesn't spawn empty branches on every remote. `pull` does not use
+the baseline: it still fetches your current branch and fails if it is
+missing.
+
 ## Commands
 
     git subtrees status    # show every registered remote, what it maps to, and its sync state
@@ -61,8 +72,10 @@ literal commit ancestry -- squash commits are never real ancestors of the
 remote's raw history) against the current local and remote content:
 
 - **never fetched** -- the remote has no tracking refs yet.
-- **`missing-at-head`** -- the remote doesn't have a branch matching your
-  current branch name.
+- **`missing-at-head`** -- the remote has neither a branch matching your
+  current branch name nor the default branch, so there is nothing to compare
+  against. `push` refuses (unless your current branch *is* the default
+  branch, which it then creates).
 - **`up to date`** -- nothing to do.
 - **`push`** / **`pull`** -- only one side moved since the last sync.
 - **`diverged`** -- both sides moved, but they still share the sync point
@@ -92,7 +105,8 @@ existing remote's URL.
 Then, based on local and remote state, it does exactly one of:
 
 - **Nothing**, if the remote has no matching branch yet -- your first
-  `git subtrees push <path>` can create it.
+  `git subtrees push <path>` can create it (on the default branch; on any
+  other branch the remote needs the default branch first).
 - **Nothing**, if `<path>` already has subtree history.
 - **`git subtree add --prefix=<path> <url> <branch>`**, if `<path>` doesn't
   exist locally yet and the remote has independent history to bring in.

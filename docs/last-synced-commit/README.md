@@ -49,9 +49,10 @@ section (`push`, `pull`, `diverged`, ...).
 ## Properties worth knowing
 
 1. **It lives in your history, not on the remote.** It exists whether or
-   not the remote has a branch named like yours. That's what lets
-   `push` decide about a *missing* remote branch: it can still ask "did
-   `vendor/a` change since **M**?".
+   not the remote has a branch named like yours. What a missing branch
+   takes away is the *target* to compare with, so the tool falls back to
+   the remote's default branch (`main`, or `subtrees.defaultBranch`) as a
+   read-only baseline -- see below.
 2. **It follows `HEAD`, not the branch name.** A branch cut from `main`
    inherits `main`'s sync point. Merging another branch in brings that
    branch's sync points along. Nothing compares `feature-1` to `feature-2`.
@@ -59,7 +60,23 @@ section (`push`, `pull`, `diverged`, ...).
    `push` writes nothing into your history, so pushing never advances it.
 4. **It must come from a squash.** A plain `git subtree add` (no
    `--squash`) makes the sync commit itself the merge, so there is no
-   separate **M** to diff against. The tool answers `unknown` rather than guess.
+   separate **M** to diff against.
+
+## When the remote has no branch like yours
+
+The target of the comparison is normally the remote branch named like your
+current branch. If it doesn't exist, the target becomes the remote's
+default branch and the state is reported "vs default branch". Everything
+else -- S, U, M -- stays the same, and `classify_subtree` runs unchanged
+against the new target:
+
+- nothing under `vendor/a` differs from the default branch: `up-to-date`
+  (or `pull`, if the default branch moved on) -- `push` skips it;
+- something differs: `push` (or `diverged`) -- `push` creates your branch;
+- no squash sync point at all: `unrelated-history` -- `push` refuses and
+  prints recovery commands;
+- the remote has neither branch: `missing-at-head` -- `push` refuses,
+  because the contract's default branch is missing.
 
 ## Walkthrough
 
@@ -70,31 +87,31 @@ current branch.
 | # | Step | Sync point | State | Why |
 |---|---|---|---|---|
 | 1 | `subtree add --squash` on `main` | S1 / M1 created | `up-to-date` | Local equals remote `main`. |
-| 2 | Cut `feature-1`; remote has no such branch | S1 / M1 (inherited) | `missing-at-head`, local changes: **no** | Nothing under `vendor/a` differs from M1, so `push` skips it. |
-| 3 | Commit a change under `vendor/a` | S1 / M1 | `missing-at-head`, local changes: **yes** | `vendor/a` differs from M1, so `push` would create `feature-1`. |
-| 4 | `subtree push` creates remote `feature-1` | S1 / M1 (unchanged) | `up-to-date` | The remote branch exists now, and its tree equals local. Note the sync point did not move. |
+| 2 | Cut `feature-1`; remote has no such branch | S1 / M1 (inherited) | `up-to-date` (vs default branch `main`) | Nothing under `vendor/a` differs from `main`, so `push` skips it. |
+| 3 | Commit a change under `vendor/a` | S1 / M1 | `push` (vs default branch `main`) | `vendor/a` has something `main` lacks, so `push` would create `feature-1`. |
+| 4 | `subtree push` creates remote `feature-1` | S1 / M1 (unchanged) | `up-to-date` | The remote branch exists now and equals local. Note the sync point did not move. |
 | 5 | Another branch changes `vendor/a` too; merge it into `feature-1` | S1 / M1 | `diverged` | See limitation 1. |
-| 6 | Remote `feature-1` is deleted | S1 / M1 | `missing-at-head`, local changes: **yes** | See limitation 2. |
+| 6 | Remote `feature-1` is deleted | S1 / M1 | `push` (vs default branch `main`) | Back to comparing with `main`: local has extra content, `main` hasn't moved. Everything pushed earlier is no longer "new" relative to the remote. |
 | 7 | Upstream `main` moves; `git subtrees pull` on `main` | **S2 / M2** | `up-to-date` | `pull` wrote a new squash commit, so the sync point advanced. |
-| 8 | Merge `main` into `feature-1` | S2 / M2 (inherited) | `missing-at-head`, local changes: **yes** | The merge brought S2 in. `feature-1` still has changes M2 lacks. |
+| 8 | Merge `main` into `feature-1` | S2 / M2 (inherited) | `push` (vs default branch `main`) | The merge brought S2 in. `feature-1` still has content `main` lacks. |
 
 ## Known limitations
 
-These are consequences of property 3. They are real behaviour today, not
-design goals.
+These are consequences of property 3 (only `add` and `pull` move the sync
+point). They are real behaviour today, not design goals.
 
 1. **After a push, further local changes look `diverged`.** The remote
    branch now differs from U (because *you* pushed to it), and local
    differs from M, so the tool sees two-sided change. It can't tell the
    remote's change was your own push. Step 5.
-2. **A deleted remote branch makes local changes look new again.** Once
-   remote `feature-1` is gone, the baseline is still M1, and everything you
-   ever pushed still counts as "changed since last sync", so `push` would
-   recreate the branch. Step 6.
-3. **No squash sync point means `unknown`.** A subtree adopted by plain
-   commits, or added without `--squash`. `push` refuses and prints the
-   manual command.
+2. **`pull` ignores the baseline.** It still fetches your current branch
+   and fails when the remote lacks it, so on a feature branch that no
+   remote has yet, `status` can show `pull` against `main` while `pull`
+   itself cannot act on it.
+3. **The default branch is an assumption.** A remote without it (or with
+   it under another name and no `subtrees.defaultBranch`) is `missing-at-head`,
+   and `push` refuses there rather than guess.
 
-All three would be addressed by treating a successful push as a sync point
-too, or by comparing against a baseline branch such as `main`. Neither is
-implemented; this page documents what the tool does now.
+Treating a successful push as a sync point would fix limitation 1. Neither
+that nor a baseline-aware `pull` is implemented; this page documents what
+the tool does now.

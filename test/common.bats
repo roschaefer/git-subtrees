@@ -7,6 +7,9 @@ setup() {
   load 'scenarios/diverged-common-ancestor/setup'
   load 'scenarios/diverged-unrelated-history/setup'
   load 'scenarios/not-connected/setup'
+  load 'scenarios/feature-branch-unchanged/setup'
+  load 'scenarios/feature-branch-changed/setup'
+  load 'scenarios/feature-branch-never-synced/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -192,9 +195,51 @@ setup() {
   [ "$SUBTREE_STATE" = "not-connected" ]
 }
 
-@test "classify_subtree: missing-at-head" {
+@test "classify_subtree: missing branch falls back to the default branch (up-to-date)" {
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "up-to-date" ]
+  [ "$SUBTREE_BASELINE_BRANCH" = "main" ]
+  [ "$SUBTREE_TARGET_REF" = "refs/remotes/vendor/a/main" ]
+}
+
+@test "classify_subtree: missing branch falls back to the default branch (push)" {
+  scenario_feature_branch_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "push" ]
+  [ "$SUBTREE_BASELINE_BRANCH" = "main" ]
+}
+
+@test "classify_subtree: missing branch falls back to the default branch (pull)" {
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  seed_bare_repo "$upstream" "upstream change"
+  cd "$monorepo"
+  git fetch -q vendor/a
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "pull" ]
+  [ "$SUBTREE_BASELINE_BRANCH" = "main" ]
+}
+
+@test "classify_subtree: missing branch, never-synced subtree is unrelated-history vs the default branch" {
+  scenario_feature_branch_never_synced "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "unrelated-history" ]
+  [ "$SUBTREE_BASELINE_BRANCH" = "main" ]
+}
+
+@test "classify_subtree: an existing branch is used as-is, with no baseline" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "main"
+  [ -z "$SUBTREE_BASELINE_BRANCH" ]
+}
+
+@test "classify_subtree: missing-at-head when the remote has neither the branch nor the default" {
   make_bare_repo "$upstream"
-  seed_bare_repo "$upstream" "seed"
+  seed_bare_repo "$upstream" "seed" other
   init_monorepo "$monorepo"
   cd "$monorepo"
   git remote add vendor/a "$upstream"
@@ -203,4 +248,39 @@ setup() {
   mkdir -p vendor/a
   classify_subtree "vendor/a" "feature"
   [ "$SUBTREE_STATE" = "missing-at-head" ]
+  [ -z "$SUBTREE_BASELINE_BRANCH" ]
+}
+
+@test "classify_subtree: missing-at-head when the current branch is the missing default" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed" other
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$upstream"
+  git fetch -q vendor/a
+  mkdir -p vendor/a
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "missing-at-head" ]
+  [ -z "$SUBTREE_BASELINE_BRANCH" ]
+}
+
+@test "default_branch: main unless subtrees.defaultBranch is set" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  [ "$(default_branch)" = "main" ]
+  git config subtrees.defaultBranch trunk
+  [ "$(default_branch)" = "trunk" ]
+}
+
+@test "classify_subtree: honours subtrees.defaultBranch" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed" trunk
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a" trunk
+  cd "$monorepo"
+  git config subtrees.defaultBranch trunk
+  git checkout -q -b feature
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "up-to-date" ]
+  [ "$SUBTREE_BASELINE_BRANCH" = "trunk" ]
 }

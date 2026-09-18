@@ -57,7 +57,8 @@ run() {
 short_subject() { git log -1 --format='%h %s' "$1"; }
 
 # Prints the sync point as seen from HEAD, then the classification against
-# the remote branch named like the current branch.
+# the remote branch named like the current branch (or, when the remote has
+# none, against its default branch).
 show_state() {
   local path="vendor/a" branch sync split merge
   branch="$(current_branch)"
@@ -69,8 +70,8 @@ show_state() {
   printf '  upstream commit taken:  %s\n' "${split:0:7}"
   printf '  local-change baseline:  %s\n' "$(short_subject "${merge:-$sync}")"
   classify_subtree "$path" "$branch"
-  if [[ "$SUBTREE_STATE" == "missing-at-head" ]]; then
-    printf '  => missing-at-head, local changes: %s\n' "$SUBTREE_LOCAL_CHANGES"
+  if [[ -n "$SUBTREE_BASELINE_BRANCH" ]]; then
+    printf "  => %s (vs default branch '%s')\n" "$SUBTREE_STATE" "$SUBTREE_BASELINE_BRANCH"
   else
     printf '  => %s\n' "$SUBTREE_STATE"
   fi

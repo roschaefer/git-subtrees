@@ -7,16 +7,16 @@
   [ "$status" -eq 0 ]
 
   local expected actual
-  # Steps 5 and 6 are known limitations (README, "Known limitations"): if
-  # they get fixed, update this list and the README together.
+  # Step 5 is a known limitation (README, "Known limitations"): if it gets
+  # fixed, update this list and the README together.
   expected="up-to-date
-missing-at-head, local changes: no
-missing-at-head, local changes: yes
+up-to-date (vs default branch 'main')
+push (vs default branch 'main')
 up-to-date
 diverged
-missing-at-head, local changes: yes
+push (vs default branch 'main')
 up-to-date
-missing-at-head, local changes: yes"
+push (vs default branch 'main')"
   actual="$(printf '%s\n' "$output" | sed -n 's/^  => //p')"
   [ "$actual" = "$expected" ]
 }

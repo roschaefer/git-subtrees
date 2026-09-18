@@ -62,6 +62,13 @@ target_ref_for() {
   printf 'refs/remotes/%s/%s\n' "$1" "$2"
 }
 
+# The branch every subtree remote is assumed to have, compared against when
+# a remote has no branch named like the current one. Part of the contract:
+# "main" unless `git config subtrees.defaultBranch <name>` says otherwise.
+default_branch() {
+  git config --get subtrees.defaultBranch 2>/dev/null || printf 'main\n'
+}
+
 # False for a name starting with '-'. git-subtree's own OPTS_SPEC parsing
 # (git rev-parse --parseopt) matches a handful of dash-prefixed values as
 # its own flags no matter where they appear (-h/--help, -q/--quiet, ...),
@@ -114,13 +121,19 @@ find_merge_commit_for_sync() {
 }
 
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
-# Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
-# globals rather than returning a value, since callers (status, push, pull)
-# need them.
+# Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA and
+# SUBTREE_BASELINE_BRANCH as globals rather than returning a value, since
+# callers (status, push, pull) need them.
+#
+# If the remote has no <branch> but does have the default branch (see
+# default_branch), the classification runs against the default branch
+# instead, and SUBTREE_BASELINE_BRANCH names it (empty otherwise). That
+# baseline is read-only: it says what the remote already has, never where
+# a push goes.
 #
 # SUBTREE_STATE is one of:
 #   not-connected     remote has never been fetched (no tracking refs at all)
-#   missing-at-head    remote has been fetched, but has no <branch> ref
+#   missing-at-head    remote has neither <branch> nor the default branch
 #   up-to-date          local path tree already matches remote tree
 #   push                 only local has changed since the last sync
 #   pull                 only remote has changed since the last sync
@@ -139,6 +152,7 @@ classify_subtree() {
   SUBTREE_STATE=""
   SUBTREE_TARGET_REF=""
   SUBTREE_SPLIT_SHA=""
+  SUBTREE_BASELINE_BRANCH=""
   SUBTREE_URL="$(git remote get-url -- "$remote" 2>/dev/null || true)"
 
   if [[ -z "$(git for-each-ref "refs/remotes/$remote/")" ]]; then
@@ -151,8 +165,15 @@ classify_subtree() {
   SUBTREE_TARGET_REF="$target_ref"
 
   if ! git show-ref --verify --quiet "$target_ref"; then
-    SUBTREE_STATE="missing-at-head"
-    return
+    local baseline
+    baseline="$(default_branch)"
+    target_ref="$(target_ref_for "$remote" "$baseline")"
+    if [[ "$baseline" == "$branch" ]] || ! git show-ref --verify --quiet "$target_ref"; then
+      SUBTREE_STATE="missing-at-head"
+      return
+    fi
+    SUBTREE_BASELINE_BRANCH="$baseline"
+    SUBTREE_TARGET_REF="$target_ref"
   fi
 
   local remote_tree local_tree
@@ -214,7 +235,7 @@ classify_subtree() {
 # split + force-pushed ref update, since `git subtree push` has no force
 # flag of its own).
 print_unrelated_history_guidance() {
-  local path="$1" branch="$2"
+  local path="$1" branch="$2" remote_branch="${3:-$2}"
   local tmp_branch="tmp-split-$(basename "$path")"
   log_warn "$path: remote and local share no history -- pick one side manually:"
   cat >&2 <<EOF
@@ -222,7 +243,7 @@ print_unrelated_history_guidance() {
   # accept the remote's version, discarding local changes under $path:
   git rm -r $path
   git commit -m "remove $path before re-adopting from remote '$path'"
-  git subtree add --prefix=$path $path $branch --squash
+  git subtree add --prefix=$path $path $remote_branch --squash
 
   # OR: accept the local (monorepo) version, overwriting $path's history:
   git subtree split --prefix=$path -b $tmp_branch
