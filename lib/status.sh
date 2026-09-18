@@ -87,34 +87,9 @@ format_unmapped_remote_line() {
 }
 
 cmd_status() {
-  local base=""
-  local paths=()
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -h | --help)
-        usage_status
-        exit 0
-        ;;
-      --base)
-        [[ $# -ge 2 && -n "$2" ]] || die "--base needs a branch name"
-        base="$2"
-        shift
-        ;;
-      --base=*)
-        base="${1#--base=}"
-        [[ -n "$base" ]] || die "--base needs a branch name"
-        ;;
-      --)
-        shift
-        paths+=("$@")
-        break
-        ;;
-      *)
-        paths+=("$1")
-        ;;
-    esac
-    shift
-  done
+  parse_base_args usage_status "$@"
+  local base="$BASE_ARG"
+  local paths=("${PATH_ARGS[@]}")
 
   cd_to_repo_root
   discover_subtrees
