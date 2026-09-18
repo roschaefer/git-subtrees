@@ -51,3 +51,38 @@ jobs:
               echo "git:  $(git --version)"
               bats --recursive test
             '
+
+  edge-release:
+    needs: [lint-test, compat-matrix]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: edge-release
+      cancel-in-progress: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build tarball
+        run: |
+          mkdir -p dist
+          git archive --format=tar.gz --prefix=git-subtrees/ -o dist/git-subtrees-edge.tar.gz HEAD
+
+      # action-gh-release updates an existing release for a tag in place,
+      # but it won't move a tag that already exists to a new commit -- that
+      # part is a plain git operation, not release logic.
+      - name: Move edge tag to HEAD
+        run: |
+          git tag -f edge
+          git push origin edge --force
+
+      - name: Publish edge release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: edge
+          name: "Edge (rolling)"
+          body: "Rolling build of the latest commit on main (${{ github.sha }})."
+          prerelease: true
+          make_latest: false
+          files: dist/git-subtrees-edge.tar.gz
