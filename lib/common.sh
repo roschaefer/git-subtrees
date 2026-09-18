@@ -113,6 +113,94 @@ find_merge_commit_for_sync() {
     'found {next} {for (i=2;i<=NF;i++) if ($i==s) {print $1; found=1; next}}'
 }
 
+# Prints the full ref of the monorepo's base branch -- the branch feature
+# branches are cut from -- or fails if there is none. Git doesn't record
+# which branch a branch was cut from, so this is resolved, in order, from:
+#   1. the explicit branch given as $1 (from --base), which always wins;
+#   2. the target of refs/remotes/origin/HEAD, if the monorepo has one;
+#   3. `git config init.defaultBranch`.
+# A name may be a local branch ("main"), a remote-tracking one
+# ("origin/main") or a full ref. A candidate only counts if it exists and
+# shares history with HEAD. There is deliberately no guessing at
+# "main"/"master": callers ask the user for --base instead.
+#
+# When a name matches both a local branch and origin/<name>, the one whose
+# merge base with HEAD is more recent wins, so a stale local branch can't
+# hide the fresher origin/<name> a branch was actually cut from.
+resolve_base_ref() {
+  local explicit="${1:-}" candidates=() candidate ref refs mb best_ref="" best_mb="" origin_head
+  if [[ -n "$explicit" ]]; then
+    candidates+=("$explicit")
+  else
+    origin_head="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+    [[ -n "$origin_head" ]] && candidates+=("${origin_head#origin/}")
+    candidate="$(git config --get init.defaultBranch 2>/dev/null || true)"
+    [[ -n "$candidate" ]] && candidates+=("$candidate")
+  fi
+  for candidate in "${candidates[@]}"; do
+    refs=("refs/heads/$candidate" "refs/remotes/$candidate" "refs/remotes/origin/$candidate")
+    [[ "$candidate" == refs/* ]] && refs=("$candidate")
+    for ref in "${refs[@]}"; do
+      git show-ref --verify --quiet "$ref" || continue
+      mb="$(git merge-base HEAD "$ref" 2>/dev/null)" || continue
+      if [[ -z "$best_ref" ]] || { [[ "$mb" != "$best_mb" ]] && git merge-base --is-ancestor "$best_mb" "$mb"; }; then
+        best_ref="$ref"
+        best_mb="$mb"
+      fi
+    done
+    [[ -n "$best_ref" ]] && break
+  done
+  [[ -n "$best_ref" ]] || return 1
+  printf '%s\n' "$best_ref"
+}
+
+# For a subtree whose remote has no branch like the current one: has <path>
+# changed on this branch, compared with the monorepo's base branch? Judged
+# purely inside the monorepo -- nothing on the remote is consulted -- from
+# the merge base of HEAD and the base branch, so later changes on the base
+# branch don't count against this one. Sets:
+#   SUBTREE_CHANGES_VS_BASE  yes | no | unresolved (no usable base branch)
+#                            | self (the current branch is the base branch)
+#                            | error (git could not compare)
+#   SUBTREE_BASE_REF         the resolved base ref (empty if unresolved)
+#   SUBTREE_BASE_BRANCH      its short name, for messages
+#   SUBTREE_BASE_MERGE_BASE  the merge base commit (yes/no only)
+# $2 is an explicit --base branch, if any.
+changes_vs_base() {
+  local path="$1" explicit="${2:-}" head_ref rc
+  SUBTREE_CHANGES_VS_BASE="unresolved"
+  SUBTREE_BASE_REF=""
+  SUBTREE_BASE_BRANCH=""
+  SUBTREE_BASE_MERGE_BASE=""
+
+  SUBTREE_BASE_REF="$(resolve_base_ref "$explicit")" || {
+    SUBTREE_BASE_REF=""
+    return 0
+  }
+  SUBTREE_BASE_BRANCH="${SUBTREE_BASE_REF#refs/heads/}"
+  SUBTREE_BASE_BRANCH="${SUBTREE_BASE_BRANCH#refs/remotes/}"
+
+  head_ref="$(git symbolic-ref --quiet HEAD 2>/dev/null || true)"
+  if [[ "$SUBTREE_BASE_REF" == "$head_ref" ]]; then
+    SUBTREE_CHANGES_VS_BASE="self"
+    return 0
+  fi
+
+  SUBTREE_BASE_MERGE_BASE="$(git merge-base HEAD "$SUBTREE_BASE_REF")"
+  # `git diff --quiet` exits 1 for "differs" and >1 for a real failure; only
+  # the former may be read as "changed", or an error would create a branch.
+  if git diff --quiet "$SUBTREE_BASE_MERGE_BASE" HEAD -- "$path" 2>/dev/null; then
+    SUBTREE_CHANGES_VS_BASE="no"
+  else
+    rc=$?
+    if ((rc == 1)); then
+      SUBTREE_CHANGES_VS_BASE="yes"
+    else
+      SUBTREE_CHANGES_VS_BASE="error"
+    fi
+  fi
+}
+
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
 # Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
 # globals rather than returning a value, since callers (status, push, pull)

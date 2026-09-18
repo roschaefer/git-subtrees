@@ -30,6 +30,25 @@ Assumption two: **the local branch name is the remote branch name.**
 remote. Work on `main` to sync with remote `main`; check out a feature
 branch to sync with that same feature branch on each touched remote.
 
+### Feature branches that a remote doesn't have yet
+
+On a branch the subtree's remote has no counterpart for -- typically a
+fresh feature branch -- there is nothing to compare with. `status` and
+`push` then ask a question about the monorepo instead: did the subtree
+change **on this branch**, compared with the monorepo's *base branch* (the
+branch this one was cut from)? `push` creates the remote branch only if it
+did, so working on a feature branch doesn't spawn empty branches on every
+remote. Nothing on the remote is consulted, and changes that were already on
+the base branch, or that landed there after you cut yours, don't count.
+
+Git doesn't record which branch you cut from, so the base branch is taken
+from, in order: `--base <branch>` on `status`/`push`, the target of the
+monorepo's `origin/HEAD`, then `git config init.defaultBranch`. If none of
+those names an existing branch that shares history with `HEAD`, the command
+says so and asks for `--base`; it never guesses. This only applies while the
+remote lacks the branch: once `push` has created it, the usual same-name
+comparison takes over.
+
 ## Commands
 
     git subtrees status    # show every registered remote, what it maps to, and its sync state
@@ -62,7 +81,9 @@ remote's raw history) against the current local and remote content:
 
 - **never fetched** -- the remote has no tracking refs yet.
 - **`missing-at-head`** -- the remote doesn't have a branch matching your
-  current branch name.
+  current branch name. `status` then reports whether the subtree changed
+  since the monorepo's base branch, and `push` creates the branch only if it
+  did (see *Feature branches that a remote doesn't have yet*).
 - **`up to date`** -- nothing to do.
 - **`push`** / **`pull`** -- only one side moved since the last sync.
 - **`diverged`** -- both sides moved, but they still share the sync point

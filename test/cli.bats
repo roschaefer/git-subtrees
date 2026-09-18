@@ -74,3 +74,19 @@ setup() {
   run "$bindir/git-subtrees" push
   [ "$status" -eq 0 ]
 }
+
+@test "cli: push --base runs through the real entrypoint" {
+  hermetic_git_config
+  load 'scenarios/feature-branch-unchanged/setup'
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  cd "$monorepo"
+  run "$entrypoint" push --base main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"nothing to push"* ]]
+}
+
+@test "cli: top-level usage mentions --base for push and status" {
+  run "$entrypoint" -h
+  [[ "$output" == *"push [--base <b>]"* ]]
+  [[ "$output" == *"status [--base <b>]"* ]]
+}

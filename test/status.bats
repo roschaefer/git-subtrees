@@ -7,6 +7,8 @@ setup() {
   load 'scenarios/diverged-common-ancestor/setup'
   load 'scenarios/diverged-unrelated-history/setup'
   load 'scenarios/not-connected/setup'
+  load 'scenarios/feature-branch-unchanged/setup'
+  load 'scenarios/feature-branch-changed/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -118,4 +120,48 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"vendor/a"*"(up to date)"* ]]
   [[ "$output" != *"no mapping"* ]]
+}
+
+@test "status: a branch missing on the remote, unchanged since the base branch" {
+  hermetic_git_config
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status --base main
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a"*"(no 'feature' branch on remote; unchanged since 'main')"* ]]
+}
+
+@test "status: a branch missing on the remote, changed since the base branch, with a diffstat" {
+  hermetic_git_config
+  scenario_feature_branch_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status --base main
+  [[ "$output" == *"changed since 'main' -- push would create it"* ]]
+  [[ "$output" == *"file.txt"* ]]
+}
+
+@test "status: finds the base branch through init.defaultBranch" {
+  hermetic_git_config
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config init.defaultBranch main
+  run cmd_status
+  [[ "$output" == *"unchanged since 'main'"* ]]
+}
+
+@test "status: without a base branch it asks for --base" {
+  hermetic_git_config
+  scenario_feature_branch_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status
+  [[ "$output" == *"monorepo base branch unknown -- pass --base <branch>"* ]]
+}
+
+@test "status: an empty --base is an error" {
+  hermetic_git_config
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status --base=
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"--base needs a branch name"* ]]
 }
