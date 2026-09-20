@@ -82,6 +82,69 @@ diff_one() {
   git --no-pager diff "$old_tree" "$local_tree"
 }
 
+# Emits all selected patches. Kept separate from cmd_diff so one pager can
+# contain every subtree rather than opening a new pager for each one.
+diff_paths() {
+  local branch="$1" base="$2"
+  shift 2
+  local failures=()
+  local path
+  for path in "$@"; do
+    diff_one "$path" "$branch" "$base" || failures+=("$path")
+  done
+
+  if [[ ${#failures[@]} -gt 0 ]]; then
+    log_err "Failed: ${failures[*]}"
+    return 1
+  fi
+}
+
+# Runs a producer through Git's pager when stdout is a terminal. Git sets
+# GIT_PAGER=cat for `git --no-pager`, and `git var GIT_PAGER` observes that
+# along with the usual GIT_PAGER/core.pager/PAGER precedence. pager.subtrees
+# is the command-specific override, matching Git's pager.<cmd> convention.
+page_git_output() {
+  local producer="$1"
+  shift
+
+  if [[ ! -t 1 ]]; then
+    "$producer" "$@"
+    return
+  fi
+
+  local pager pager_config
+  if [[ -n "${GIT_PAGER+x}" ]]; then
+    pager="$(git var GIT_PAGER)"
+  elif pager_config="$(git config --get pager.subtrees 2>/dev/null)"; then
+    case "${pager_config,,}" in
+      false | no | off | 0) pager=cat ;;
+      "" | true | yes | on | 1) pager="$(git var GIT_PAGER)" ;;
+      *) pager="$pager_config" ;;
+    esac
+  else
+    pager="$(git var GIT_PAGER)"
+  fi
+  [[ -n "$pager" ]] || pager=cat
+  : "${LESS:=FRX}" "${LV:=-c}"
+  export LESS LV
+
+  local statuses producer_status pager_status
+  if {
+    # Pager values are shell commands by Git's documented configuration
+    # contract, so evaluate them the same way Git's own shell commands do.
+    # shellcheck disable=SC2294
+    "$producer" "$@" | eval "$pager"
+    statuses=("${PIPESTATUS[@]}")
+    producer_status="${statuses[0]}"
+    pager_status="${statuses[1]}"
+    ((producer_status == 0 || producer_status == 141)) && ((pager_status == 0))
+  }; then
+    return 0
+  fi
+  ((producer_status == 141)) && return "$pager_status"
+  return "$producer_status"
+}
+
 cmd_diff() {
   parse_base_args usage_diff "$@"
   local base="$BASE_ARG"
@@ -104,13 +167,5 @@ cmd_diff() {
     is_subtree_path "$path" || die "not a subtree path: $path"
   done
 
-  local failures=()
-  for path in "${paths[@]}"; do
-    diff_one "$path" "$branch" "$base" || failures+=("$path")
-  done
-
-  if [[ ${#failures[@]} -gt 0 ]]; then
-    log_err "Failed: ${failures[*]}"
-    return 1
-  fi
+  page_git_output diff_paths "$branch" "$base" "${paths[@]}"
 }

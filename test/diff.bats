@@ -62,3 +62,13 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"vendor/a"* ]]
 }
+
+@test "diff: redirected output does not invoke the pager" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  cd "$monorepo"
+
+  run env GIT_PAGER=false "$BATS_TEST_DIRNAME/../git-subtrees" diff
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"+local change"* ]]
+}

@@ -67,20 +67,22 @@ Each `git subtrees` command applies the familiar Git operation across the
 discovered subtree repositories, using the current monorepo branch as the
 branch name in each remote:
 
-| Git command | What Git does | `git subtrees` counterpart | What this tool does |
+| Git command | What Git acts on | `git subtrees` counterpart | What this tool acts on |
 | --- | --- | --- | --- |
-| `git status` | Summarizes the current worktree and branch. | `git subtrees status` | Summarizes whether each subtree is ahead, behind, diverged, or up to date. |
-| `git diff` | Shows changes between Git states. | `git subtrees diff` | Shows committed file changes that would be sent by a subtree push. |
-| `git fetch` | Updates one repository's remote-tracking refs. | `git subtrees fetch` | Updates the remote-tracking refs for all selected subtree remotes. |
-| `git pull` | Fetches and integrates changes into the current branch. | `git subtrees pull` | Fetches and squash-merges remote changes into each selected subtree directory. |
-| `git push` | Updates refs in one remote repository. | `git subtrees push` | Splits and pushes locally changed subtree contents to their matching remotes. |
-| `git remote prune` | Removes one remote's stale tracking refs. | `git subtrees prune` | Removes stale remote-tracking refs for the selected subtree remotes. |
-| `git remote add` / `git subtree add` | Registers a remote or adds one subtree. | `git subtrees init` | Registers and, when needed, adopts one subtree remote and path. |
+| `git status` | Summarizes the **current worktree and branch**. | `git subtrees status` | Summarizes the sync state of **every selected subtree and its remote branch**. |
+| `git diff` | Shows worktree changes that could be **committed**. | `git subtrees diff` | Shows committed subtree changes that would be **pushed**. |
+| `git fetch` | Updates remote-tracking refs from **one remote**. | `git subtrees fetch` | Updates remote-tracking refs from **every selected subtree remote**. |
+| `git pull` | Integrates remote changes into the **current repository**. | `git subtrees pull` | Squash-merges remote changes into **every selected subtree directory**. |
+| `git push` | Pushes the **current repository's refs** to a remote. | `git subtrees push` | Splits and pushes **every selected locally changed subtree** to its matching remote. |
+| `git remote prune` | Removes stale tracking refs for **one remote**. | `git subtrees prune` | Removes stale tracking refs for **every selected subtree remote**. |
+| `git init` | Initializes the **current directory** as a Git repository. | `git subtrees init` | Initializes **one path/remote pair inside the monorepo** as a managed subtree. |
 
 `diff`, like `status`, is purely local and uses the last fetched remote refs.
 Run `git subtrees fetch` first when the comparison must reflect the latest
 remote state. It compares committed content at `HEAD`; uncommitted worktree
-changes are not included because `git subtree push` cannot send them.
+changes are not included because `git subtree push` cannot send them. When
+writing to a terminal, its output uses Git's pager configuration (including
+`pager.subtrees`); `git --no-pager subtrees diff` disables paging as usual.
 
 `pull` always performs a squash merge. It fetches the selected subtree branch
 explicitly, then merges the fetched tracking ref without refetching during the
