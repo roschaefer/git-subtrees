@@ -55,7 +55,7 @@ diff_one() {
           return 1
           ;;
         yes)
-          old_tree="$(git rev-parse "$SUBTREE_BASE_MERGE_BASE:$path" 2>/dev/null || true)"
+          old_tree="$(git rev-parse --verify "${SUBTREE_BASE_MERGE_BASE}:$path" 2>/dev/null)" || old_tree=""
           ;;
         self)
           old_tree=""
@@ -67,7 +67,7 @@ diff_one() {
       ;;
   esac
 
-  local_tree="$(git rev-parse "HEAD:$path" 2>/dev/null || true)"
+  local_tree="$(git rev-parse --verify "HEAD:$path" 2>/dev/null)" || local_tree=""
   [[ -n "$local_tree" ]] || {
     log_err "$path: cannot resolve subtree content at HEAD"
     return 1

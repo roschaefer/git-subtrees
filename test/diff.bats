@@ -4,6 +4,7 @@ setup() {
   load 'scenarios/up-to-date/setup'
   load 'scenarios/push-ahead/setup'
   load 'scenarios/pull-ahead/setup'
+  load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
@@ -51,6 +52,22 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"diff --git a/file.txt b/file.txt"* ]]
   [[ "$output" == *"+local change"* ]]
+}
+
+@test "diff: subtree added on this branch is compared against the empty tree" {
+  hermetic_git_config
+  scenario_feature_branch_unchanged "$monorepo" "$upstream"
+  local upstream_b="$BATS_TEST_TMPDIR/upstream-b.git"
+  make_bare_repo "$upstream_b"
+  seed_bare_repo "$upstream_b" "seed-b"
+  add_subtree "$monorepo" "$upstream_b" "vendor/b"
+  cd "$monorepo"
+
+  run cmd_diff --base main vendor/b
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"new file mode"* ]]
+  [[ "$output" == *"+seed-b"* ]]
 }
 
 @test "diff: path arguments restrict output" {
