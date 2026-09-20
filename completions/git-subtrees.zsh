@@ -34,6 +34,7 @@ _git-subtrees() {
   local -a commands paths
 
   commands=(
+    'diff:show file changes that push would send'
     'init:one-time bootstrap of a path/url pair'
     'fetch:fetch every subtree'\''s remote'
     'pull:squash-merge upstream changes into subtree paths'
@@ -52,7 +53,7 @@ _git-subtrees() {
       paths=("${(@f)$(__git_subtrees_paths)}")
       _describe -t paths 'subtree path' paths
       ;;
-    push | status)
+    diff | push | status)
       paths=("${(@f)$(__git_subtrees_paths)}")
       _arguments \
         '--base=[monorepo base branch to compare against]:branch:__git_subtrees_branches' \

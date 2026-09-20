@@ -29,7 +29,7 @@ setup() {
 }
 
 @test "cli: each subcommand's own -h works" {
-  for cmd in init fetch pull prune push status; do
+  for cmd in diff init fetch pull prune push status; do
     run "$entrypoint" "$cmd" -h
     [ "$status" -eq 0 ]
     [[ "$output" == *"usage: git subtrees $cmd"* ]]
@@ -40,7 +40,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
 
-  for cmd in fetch pull push status; do
+  for cmd in diff fetch pull push status; do
     run "$entrypoint" "$cmd" -- -h
     [ "$status" -eq 1 ]
     [[ "$output" == *"not a subtree path: -h"* ]]
@@ -85,8 +85,9 @@ setup() {
   [[ "$output" == *"nothing to push"* ]]
 }
 
-@test "cli: top-level usage mentions --base for push and status" {
+@test "cli: top-level usage mentions --base for diff, push, and status" {
   run "$entrypoint" -h
+  [[ "$output" == *"diff [--base <b>]"* ]]
   [[ "$output" == *"push [--base <b>]"* ]]
   [[ "$output" == *"status [--base <b>]"* ]]
 }

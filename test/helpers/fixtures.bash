@@ -80,5 +80,7 @@ load_lib() {
   # shellcheck disable=SC1091
   source "$lib_dir/push.sh"
   # shellcheck disable=SC1091
+  source "$lib_dir/diff.sh"
+  # shellcheck disable=SC1091
   source "$lib_dir/status.sh"
 }

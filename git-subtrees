@@ -25,6 +25,8 @@ source "$script_dir/lib/fetch.sh"
 source "$script_dir/lib/pull.sh"
 # shellcheck source=lib/prune.sh
 source "$script_dir/lib/prune.sh"
+# shellcheck source=lib/diff.sh
+source "$script_dir/lib/diff.sh"
 # shellcheck source=lib/push.sh
 source "$script_dir/lib/push.sh"
 # shellcheck source=lib/status.sh
@@ -40,6 +42,7 @@ contract. The current local branch name is the sync target on every
 subtree remote.
 
 Commands:
+  diff [--base <b>] [path...]    show file changes that push would send
   init <path> <url>              one-time bootstrap: register a remote and add/adopt it
   fetch [path...]                fetch every subtree's remote (default: all)
   pull [path...]                 squash-merge upstream changes into subtree paths
@@ -61,6 +64,10 @@ main() {
     -h | --help)
       top_usage
       exit 0
+      ;;
+    diff)
+      shift
+      cmd_diff "$@"
       ;;
     init)
       shift
