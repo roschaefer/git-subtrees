@@ -18,6 +18,11 @@ dir=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dir)
+      if [[ $# -lt 2 ]]; then
+        echo "--dir needs a path" >&2
+        usage >&2
+        exit 1
+      fi
       dir="$2"
       shift 2
       ;;
@@ -44,6 +49,9 @@ mkdir -p "$dir"
 upstream="$dir/upstream.git"
 mono="$dir/monorepo"
 
+# Ignore the developer's own git config (signing, hooks templates, ...), so
+# the walkthrough behaves the same on every machine.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=Walkthrough GIT_AUTHOR_EMAIL=walkthrough@example.com
 export GIT_COMMITTER_NAME=Walkthrough GIT_COMMITTER_EMAIL=walkthrough@example.com
 
