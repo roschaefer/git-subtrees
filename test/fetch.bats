@@ -20,6 +20,33 @@ setup() {
   [ ! -f .git/FETCH_HEAD ]
 }
 
+@test "fetch: reports when the matching remote branch moved" {
+  local changed="$BATS_TEST_TMPDIR/changed.git" unchanged="$BATS_TEST_TMPDIR/unchanged.git"
+  make_bare_repo "$changed"
+  make_bare_repo "$unchanged"
+  seed_bare_repo "$changed" "changed-seed"
+  seed_bare_repo "$unchanged" "unchanged-seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  mkdir -p changed unchanged
+  git remote add changed "$changed"
+  git remote add unchanged "$unchanged"
+  git fetch -q changed
+  git fetch -q unchanged
+  local old_sha
+  old_sha="$(git rev-parse refs/remotes/changed/main)"
+  seed_bare_repo "$changed" "remote-change"
+  local new_sha
+  new_sha="$(git --git-dir="$changed" rev-parse refs/heads/main)"
+
+  run cmd_fetch
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok   changed fetched (main moved ${old_sha:0:7}..${new_sha:0:7})"* ]]
+  [[ "$output" == *"ok   unchanged fetched"* ]]
+  [[ "$output" != *"unchanged fetched ("* ]]
+}
+
 @test "fetch: a subtree remote named like a flag is fetched, not parsed as one" {
   local upstream="$BATS_TEST_TMPDIR/upstream.git"
   make_bare_repo "$upstream"

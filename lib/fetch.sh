@@ -6,7 +6,8 @@ usage: git subtrees fetch [path...]
 
 Fetches every subtree's remote, updating refs/remotes/<name>/* only --
 never FETCH_HEAD. Defaults to every discovered subtree when no paths are
-given. Runs fetches in parallel.
+given. Runs fetches in parallel and reports when a remote branch matching
+the current branch moved.
 EOF
 }
 
@@ -16,18 +17,42 @@ EOF
 fetch_one() {
   local remote="$1" branch="${2:-}"
   if [[ -n "$branch" ]]; then
+    local target_ref old_sha
+    target_ref="$(target_ref_for "$remote" "$branch")"
+    old_sha="$(git rev-parse --verify "$target_ref" 2>/dev/null || true)"
     fetch_branch "$remote" "$branch" || {
       log_err "$remote fetch failed"
       return 1
     }
-    log_ok "$remote fetched"
+    log_fetch_success "$remote" "$branch" "$old_sha" "$target_ref"
     return 0
   fi
+
+  # A normal fetch follows all of the remote's configured refspecs. Snapshot
+  # the branch matching the monorepo's current branch so the otherwise quiet
+  # fetch can still call out the update users are most likely interested in.
+  branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  local target_ref="" old_sha=""
+  if [[ -n "$branch" ]]; then
+    target_ref="$(target_ref_for "$remote" "$branch")"
+    old_sha="$(git rev-parse --verify "$target_ref" 2>/dev/null || true)"
+  fi
   if git fetch --quiet --no-write-fetch-head -- "$remote"; then
-    log_ok "$remote fetched"
+    log_fetch_success "$remote" "$branch" "$old_sha" "$target_ref"
   else
     log_err "$remote fetch failed"
     return 1
+  fi
+}
+
+log_fetch_success() {
+  local remote="$1" branch="$2" old_sha="$3" target_ref="$4" new_sha=""
+  [[ -n "$target_ref" ]] && new_sha="$(git rev-parse --verify "$target_ref" 2>/dev/null || true)"
+
+  if [[ -n "$old_sha" && -n "$new_sha" && "$old_sha" != "$new_sha" ]]; then
+    log_ok "$remote fetched ($branch moved ${old_sha:0:7}..${new_sha:0:7})"
+  else
+    log_ok "$remote fetched"
   fi
 }
 

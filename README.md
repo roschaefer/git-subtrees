@@ -71,7 +71,7 @@ branch name in each remote:
 | --- | --- | --- | --- |
 | `git status` | Summarizes the **current worktree and branch**. | `git subtrees status` | Summarizes the sync state of **every selected subtree and its remote branch**. |
 | `git diff` | Shows worktree changes that could be **committed**. | `git subtrees diff` | Shows committed subtree changes that would be **pushed**. |
-| `git fetch` | Updates remote-tracking refs from **one remote**. | `git subtrees fetch` | Updates remote-tracking refs from **every selected subtree remote**. |
+| `git fetch` | Updates remote-tracking refs from **one remote**. | `git subtrees fetch` | Updates remote-tracking refs from **every selected subtree remote**, calling out when the matching branch moved. |
 | `git pull` | Integrates remote changes into the **current repository**. | `git subtrees pull` | Squash-merges remote changes into **every selected subtree directory**. |
 | `git push` | Pushes the **current repository's refs** to a remote. | `git subtrees push` | Splits and pushes **every selected locally changed subtree** to its matching remote. |
 | `git remote prune` | Removes stale tracking refs for **one remote**. | `git subtrees prune` | Removes stale tracking refs for **every selected subtree remote**. |
