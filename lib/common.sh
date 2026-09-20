@@ -38,7 +38,7 @@ current_branch() {
 }
 
 # Shared option parsing for the commands that take `[--base <branch>]
-# [path...]` (push, status). Sets BASE_ARG and PATH_ARGS. $1 names the
+# [path...]` (diff, push, status). Sets BASE_ARG and PATH_ARGS. $1 names the
 # command's usage function, which is run (then exit 0) for -h/--help; the
 # remaining arguments are the command line. Everything after `--`, and any
 # other argument, is a path -- so a subtree named like a flag still works.

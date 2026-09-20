@@ -51,6 +51,7 @@ comparison takes over.
 
 ## Commands
 
+    git subtrees diff      # show the committed file changes that push would send
     git subtrees status    # show every registered remote, what it maps to, and its sync state
     git subtrees fetch     # fetch all subtree remotes in parallel
     git subtrees pull      # bring in remote changes with a squash merge
@@ -59,6 +60,27 @@ comparison takes over.
     git subtrees init      # one-time bootstrap of a single path/remote pair
 
 Run `git subtrees <command> --help` for options.
+
+### Mental model: Git versus git-subtrees
+
+Each `git subtrees` command applies the familiar Git operation across the
+discovered subtree repositories, using the current monorepo branch as the
+branch name in each remote:
+
+| Git command | What Git does | `git subtrees` counterpart | What this tool does |
+| --- | --- | --- | --- |
+| `git status` | Summarizes the current worktree and branch. | `git subtrees status` | Summarizes whether each subtree is ahead, behind, diverged, or up to date. |
+| `git diff` | Shows changes between Git states. | `git subtrees diff` | Shows committed file changes that would be sent by a subtree push. |
+| `git fetch` | Updates one repository's remote-tracking refs. | `git subtrees fetch` | Updates the remote-tracking refs for all selected subtree remotes. |
+| `git pull` | Fetches and integrates changes into the current branch. | `git subtrees pull` | Fetches and squash-merges remote changes into each selected subtree directory. |
+| `git push` | Updates refs in one remote repository. | `git subtrees push` | Splits and pushes locally changed subtree contents to their matching remotes. |
+| `git remote prune` | Removes one remote's stale tracking refs. | `git subtrees prune` | Removes stale remote-tracking refs for the selected subtree remotes. |
+| `git remote add` / `git subtree add` | Registers a remote or adds one subtree. | `git subtrees init` | Registers and, when needed, adopts one subtree remote and path. |
+
+`diff`, like `status`, is purely local and uses the last fetched remote refs.
+Run `git subtrees fetch` first when the comparison must reflect the latest
+remote state. It compares committed content at `HEAD`; uncommitted worktree
+changes are not included because `git subtree push` cannot send them.
 
 `pull` always performs a squash merge. It fetches the selected subtree branch
 explicitly, then merges the fetched tracking ref without refetching during the
@@ -175,8 +197,8 @@ Requires:
 
 Completions for bash, zsh, and fish live under `completions/`. They
 complete both `git subtrees <TAB>` and the standalone `git-subtrees <TAB>`,
-and offer discovered subtree paths as arguments to `fetch`/`pull`/`prune`/
-`push`/`status`.
+and offer discovered subtree paths as arguments to `diff`/`fetch`/`pull`/
+`prune`/`push`/`status`.
 
     # bash -- source from ~/.bashrc, or drop into a directory bash-completion
     # loads eagerly (e.g. /etc/bash_completion.d/), since git's own dispatch

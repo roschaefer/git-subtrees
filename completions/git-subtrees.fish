@@ -19,10 +19,11 @@ function __git_subtrees_paths
     end
 end
 
-set -l commands init fetch pull prune push status
+set -l commands diff init fetch pull prune push status
 
 complete -c git-subtrees -f
 
+complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a diff -d 'show file changes that push would send'
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a init -d 'bootstrap a path/url pair'
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a fetch -d "fetch every subtree's remote"
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a pull -d 'squash-merge upstream changes'
@@ -31,9 +32,9 @@ complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a push 
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a status -d 'show sync state'
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -s h -l help -d 'show usage'
 
-complete -c git-subtrees -n "__fish_seen_subcommand_from fetch pull push status" -a "(__git_subtrees_paths)" -d 'subtree path'
-complete -c git-subtrees -n "__fish_seen_subcommand_from fetch pull push status" -s h -l help -d 'show usage'
-complete -c git-subtrees -n "__fish_seen_subcommand_from push status" -l base -x -a "(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -d 'monorepo base branch to compare against'
+complete -c git-subtrees -n "__fish_seen_subcommand_from diff fetch pull push status" -a "(__git_subtrees_paths)" -d 'subtree path'
+complete -c git-subtrees -n "__fish_seen_subcommand_from diff fetch pull push status" -s h -l help -d 'show usage'
+complete -c git-subtrees -n "__fish_seen_subcommand_from diff push status" -l base -x -a "(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -d 'monorepo base branch to compare against'
 complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -a "(__git_subtrees_paths)" -d 'subtree path'
 complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -s n -l dry-run -d 'show stale refs without pruning'
 complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -s h -l help -d 'show usage'
