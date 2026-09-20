@@ -88,9 +88,15 @@ diff_paths() {
   local branch="$1" base="$2"
   shift 2
   local failures=()
-  local path
+  local path rc
   for path in "$@"; do
-    diff_one "$path" "$branch" "$base" || failures+=("$path")
+    if diff_one "$path" "$branch" "$base"; then
+      continue
+    else
+      rc=$?
+      ((rc == 141)) && return 141
+      failures+=("$path")
+    fi
   done
 
   if [[ ${#failures[@]} -gt 0 ]]; then
@@ -99,22 +105,13 @@ diff_paths() {
   fi
 }
 
-# Runs a producer through Git's pager when stdout is a terminal. Git sets
-# GIT_PAGER=cat for `git --no-pager`, and `git var GIT_PAGER` observes that
-# along with the usual GIT_PAGER/core.pager/PAGER precedence. pager.subtrees
-# is the command-specific override, matching Git's pager.<cmd> convention.
-page_git_output() {
-  local producer="$1"
-  shift
-
-  if [[ ! -t 1 ]]; then
-    "$producer" "$@"
-    return
-  fi
-
+# Prints the pager for this command. pager.subtrees takes precedence over an
+# ordinary GIT_PAGER value, just as pager.log does for `git log`; the special
+# GIT_PAGER=cat exported by `git --no-pager` still disables paging globally.
+subtrees_pager() {
   local pager pager_config
-  if [[ -n "${GIT_PAGER+x}" ]]; then
-    pager="$(git var GIT_PAGER)"
+  if [[ "${GIT_PAGER:-}" == cat ]]; then
+    pager=cat
   elif pager_config="$(git config --get pager.subtrees 2>/dev/null)"; then
     case "${pager_config,,}" in
       false | no | off | 0) pager=cat ;;
@@ -125,6 +122,15 @@ page_git_output() {
     pager="$(git var GIT_PAGER)"
   fi
   [[ -n "$pager" ]] || pager=cat
+  printf '%s\n' "$pager"
+}
+
+# Pipes one producer through a pager command and preserves meaningful exit
+# statuses. A producer SIGPIPE is normal when a successful pager quits early;
+# a pager startup/runtime failure must still reach the caller.
+pipe_to_pager() {
+  local producer="$1" pager="$2"
+  shift 2
   : "${LESS:=FRX}" "${LV:=-c}"
   export LESS LV
 
@@ -141,8 +147,24 @@ page_git_output() {
   }; then
     return 0
   fi
-  ((producer_status == 141)) && return "$pager_status"
+  ((producer_status == 0 || producer_status == 141)) && return "$pager_status"
   return "$producer_status"
+}
+
+# Runs a producer through Git's pager when stdout is a terminal. Redirected
+# and piped output remains unpaged, as it does for Git's built-in commands.
+page_git_output() {
+  local producer="$1"
+  shift
+
+  if [[ ! -t 1 ]]; then
+    "$producer" "$@"
+    return
+  fi
+
+  local pager
+  pager="$(subtrees_pager)"
+  pipe_to_pager "$producer" "$pager" "$@"
 }
 
 cmd_diff() {

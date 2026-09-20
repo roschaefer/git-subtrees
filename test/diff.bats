@@ -72,3 +72,47 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"+local change"* ]]
 }
+
+@test "diff: quitting the pager early does not report a subtree failure" {
+  diff_one() { return 141; }
+
+  run diff_paths main "" vendor/a
+
+  [ "$status" -eq 141 ]
+  [[ "$output" != *"Failed:"* ]]
+}
+
+@test "diff: pager.subtrees=false overrides an exported pager" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git config pager.subtrees false
+
+  GIT_PAGER='missing-pager' run subtrees_pager
+
+  [ "$status" -eq 0 ]
+  [ "$output" = cat ]
+}
+
+@test "diff: git --no-pager overrides pager.subtrees" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git config pager.subtrees 'missing-pager'
+
+  GIT_PAGER=cat run subtrees_pager
+
+  [ "$status" -eq 0 ]
+  [ "$output" = cat ]
+}
+
+@test "diff: pager startup failure is returned" {
+  produce_diff() { printf 'patch\n'; }
+  missing_pager_fails() {
+    local rc=0
+    pipe_to_pager produce_diff 'missing-pager-command' || rc=$?
+    ((rc == 127))
+  }
+
+  run missing_pager_fails
+
+  [ "$status" -eq 0 ]
+}
