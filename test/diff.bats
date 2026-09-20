@@ -121,6 +121,28 @@ setup() {
   [ "$output" = cat ]
 }
 
+@test "diff: an empty pager.subtrees value disables paging" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git config pager.subtrees ""
+
+  GIT_PAGER='missing-pager' run subtrees_pager
+
+  [ "$status" -eq 0 ]
+  [ "$output" = cat ]
+}
+
+@test "diff: a nonzero integer pager.subtrees value enables paging" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git config pager.subtrees 2
+
+  GIT_PAGER='custom-pager' run subtrees_pager
+
+  [ "$status" -eq 0 ]
+  [ "$output" = custom-pager ]
+}
+
 @test "diff: git --no-pager overrides pager.subtrees" {
   init_monorepo "$monorepo"
   cd "$monorepo"

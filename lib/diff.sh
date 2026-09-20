@@ -79,7 +79,7 @@ diff_one() {
   fi
 
   log_step "$path"
-  git --no-pager diff "$old_tree" "$local_tree"
+  git diff "$old_tree" "$local_tree"
 }
 
 # Emits all selected patches. Kept separate from cmd_diff so one pager can
@@ -109,15 +109,15 @@ diff_paths() {
 # ordinary GIT_PAGER value, just as pager.log does for `git log`; the special
 # GIT_PAGER=cat exported by `git --no-pager` still disables paging globally.
 subtrees_pager() {
-  local pager pager_config
+  local pager pager_config pager_bool
   if [[ "${GIT_PAGER:-}" == cat ]]; then
     pager=cat
   elif pager_config="$(git config --get pager.subtrees 2>/dev/null)"; then
-    case "${pager_config,,}" in
-      false | no | off | 0) pager=cat ;;
-      "" | true | yes | on | 1) pager="$(git var GIT_PAGER)" ;;
-      *) pager="$pager_config" ;;
-    esac
+    if pager_bool="$(git config --type=bool --get pager.subtrees 2>/dev/null)"; then
+      [[ "$pager_bool" == true ]] && pager="$(git var GIT_PAGER)" || pager=cat
+    else
+      pager="$pager_config"
+    fi
   else
     pager="$(git var GIT_PAGER)"
   fi
