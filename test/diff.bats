@@ -95,7 +95,7 @@ setup() {
   scenario_push_ahead "$monorepo" "$upstream"
   cd "$monorepo"
 
-  run pipe_to_pager diff_paths cat main "" vendor/a
+  TERM=xterm run pipe_to_pager diff_paths cat main "" vendor/a
 
   [ "$status" -eq 0 ]
   [[ "$output" == *$'\033['* ]]
