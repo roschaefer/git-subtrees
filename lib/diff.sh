@@ -139,7 +139,7 @@ pipe_to_pager() {
     # Pager values are shell commands by Git's documented configuration
     # contract, so evaluate them the same way Git's own shell commands do.
     # shellcheck disable=SC2294
-    "$producer" "$@" | eval "$pager"
+    GIT_PAGER_IN_USE=true "$producer" "$@" | eval "$pager"
     statuses=("${PIPESTATUS[@]}")
     producer_status="${statuses[0]}"
     pager_status="${statuses[1]}"

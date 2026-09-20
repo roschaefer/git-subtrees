@@ -71,6 +71,17 @@ setup() {
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"+local change"* ]]
+  [[ "$output" != *$'\033['* ]]
+}
+
+@test "diff: output is colored while a pager is active" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  cd "$monorepo"
+
+  run pipe_to_pager diff_paths cat main "" vendor/a
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'\033['* ]]
 }
 
 @test "diff: quitting the pager early does not report a subtree failure" {
