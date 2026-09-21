@@ -20,7 +20,7 @@ setup() {
   [ ! -f .git/FETCH_HEAD ]
 }
 
-@test "fetch: reports when the matching remote branch moved" {
+@test "fetch: reports when the matching remote branch moved despite an ambiguous short name" {
   local changed="$BATS_TEST_TMPDIR/changed.git" unchanged="$BATS_TEST_TMPDIR/unchanged.git"
   make_bare_repo "$changed"
   make_bare_repo "$unchanged"
@@ -33,6 +33,7 @@ setup() {
   git remote add unchanged "$unchanged"
   git fetch -q changed
   git fetch -q unchanged
+  git tag main
   local old_sha
   old_sha="$(git rev-parse refs/remotes/changed/main)"
   seed_bare_repo "$changed" "remote-change"

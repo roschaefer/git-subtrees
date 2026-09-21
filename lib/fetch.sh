@@ -31,7 +31,8 @@ fetch_one() {
   # A normal fetch follows all of the remote's configured refspecs. Snapshot
   # the branch matching the monorepo's current branch so the otherwise quiet
   # fetch can still call out the update users are most likely interested in.
-  branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  branch="$(git symbolic-ref --quiet HEAD 2>/dev/null || true)"
+  branch="${branch#refs/heads/}"
   local target_ref="" old_sha=""
   if [[ -n "$branch" ]]; then
     target_ref="$(target_ref_for "$remote" "$branch")"
