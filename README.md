@@ -54,7 +54,8 @@ comparison takes over.
     git subtrees diff      # show the committed file changes that push would send
     git subtrees status    # show every registered remote, what it maps to, and its sync state
     git subtrees fetch     # fetch all subtree remotes in parallel
-    git subtrees pull      # bring in remote changes with a squash merge
+    git subtrees merge     # squash-merge already-fetched remote changes
+    git subtrees pull      # fetch, then merge
     git subtrees prune     # prune stale remote-tracking refs for subtree remotes
     git subtrees push      # push subtrees with local changes to their remotes
     git subtrees init      # one-time bootstrap of a single path/remote pair
@@ -67,15 +68,16 @@ Each `git subtrees` command applies the familiar Git operation across the
 discovered subtree repositories, using the current monorepo branch as the
 branch name in each remote:
 
-| Git command | What Git acts on | `git subtrees` counterpart | What this tool acts on |
-| --- | --- | --- | --- |
-| `git status` | Summarizes the **current worktree and branch**. | `git subtrees status` | Summarizes the sync state of **every selected subtree and its remote branch**. |
-| `git diff` | Shows worktree changes that could be **committed**. | `git subtrees diff` | Shows committed subtree changes that would be **pushed**. |
-| `git fetch` | Updates remote-tracking refs from **one remote**. | `git subtrees fetch` | Updates remote-tracking refs from **every selected subtree remote**, calling out when the matching branch moved. |
-| `git pull` | Integrates remote changes into the **current repository**. | `git subtrees pull` | Squash-merges remote changes into **every selected subtree directory**. |
-| `git push` | Pushes the **current repository's refs** to a remote. | `git subtrees push` | Splits and pushes **every selected locally changed subtree** to its matching remote. |
-| `git remote prune` | Removes stale tracking refs for **one remote**. | `git subtrees prune` | Removes stale tracking refs for **every selected subtree remote**. |
-| `git init` | Initializes the **current directory** as a Git repository. | `git subtrees init` | Initializes **one path/remote pair inside the monorepo** as a managed subtree. |
+| Subcommand | `git` | `git subtrees` |
+| --- | --- | --- |
+| `status` | Summarizes the **current worktree and branch**. | Summarizes the sync state of **every selected subtree and its remote branch**. |
+| `diff` | Shows worktree changes that could be **committed**. | Shows committed subtree changes that would be **pushed**. |
+| `fetch` | Updates remote-tracking refs from **one remote**. | Updates remote-tracking refs from **every selected subtree remote**, calling out when the matching branch moved. |
+| `merge` | Joins **already-fetched** history into the current branch. | Squash-merges **already-fetched** remote changes into **every selected subtree directory**, without touching the network. |
+| `pull` | `fetch` + `merge` for the **current repository**. | `fetch` + `merge` for **every selected subtree**. |
+| `push` | Pushes the **current repository's refs** to a remote. | Splits and pushes **every selected locally changed subtree** to its matching remote. |
+| `prune` | (`git remote prune`) Removes stale tracking refs for **one remote**. | Removes stale tracking refs for **every selected subtree remote**. |
+| `init` | Initializes the **current directory** as a Git repository. | Initializes **one path/remote pair inside the monorepo** as a managed subtree. |
 
 `diff`, like `status`, is purely local and uses the last fetched remote refs.
 Run `git subtrees fetch` first when the comparison must reflect the latest
@@ -84,11 +86,19 @@ changes are not included because `git subtree push` cannot send them. When
 writing to a terminal, its output uses Git's pager configuration (including
 `pager.subtrees`); `git --no-pager subtrees diff` disables paging as usual.
 
-`pull` always performs a squash merge. It fetches the selected subtree branch
-explicitly, then merges the fetched tracking ref without refetching during the
-serial merge phase. If that branch fetch fails (for example because the
-upstream branch was deleted), `pull` fails too, matching the failure shape of
-plain `git subtree pull <remote> <branch>`.
+`merge` always performs a squash merge, and only from what was already
+fetched: like plain `git merge`, it never contacts a remote. Run
+`git subtrees fetch` first, then `git subtrees merge` (a subtree that was
+never fetched is reported as such). This lets you inspect with `status` or
+`diff` between the two steps.
+
+`pull` is `fetch` + `merge`, exactly as in plain Git. It fetches the selected
+subtree branch explicitly, then merges the fetched tracking ref without
+refetching during the serial merge phase. Its output stays grouped per
+subtree: each subtree's fetch line is followed directly by its merge result.
+If that branch fetch fails (for example because the upstream branch was
+deleted), `pull` fails too, matching the failure shape of plain
+`git subtree pull <remote> <branch>`.
 
 `prune` delegates to `git remote prune` for each selected subtree remote. It
 follows the remote's configured fetch refspecs, so explicit non-branch mappings
@@ -97,7 +107,7 @@ what Git would delete first.
 
 ### Sync states
 
-`status`, `pull`, and `push` all classify each subtree's sync state the
+`status`, `merge`, `pull`, and `push` all classify each subtree's sync state the
 same way, comparing what was last synced (recovered from `git subtree`'s
 own `git-subtree-dir`/`git-subtree-split` commit trailers, not from
 literal commit ancestry -- squash commits are never real ancestors of the
@@ -111,15 +121,15 @@ remote's raw history) against the current local and remote content:
 - **`up to date`** -- nothing to do.
 - **`push`** / **`pull`** -- only one side moved since the last sync.
 - **`diverged`** -- both sides moved, but they still share the sync point
-  as a common ancestor. `pull` attempts its normal squash merge, which may
+  as a common ancestor. `merge` (and so `pull`) attempts its normal squash merge, which may
   hit an ordinary conflict -- resolve it and run plain `git commit`, then
   re-run `pull`.
 - **`unrelated-history`** -- both sides moved (or never synced at all),
   and share **no** common ancestor -- typically because the remote's
   history was rebuilt from scratch independently of what this tool last
   knew about it. There's no principled automatic merge here, only a human
-  decision to keep one side and discard the other's history, so `pull`
-  and `push` don't attempt anything: they print two ready-to-run recovery
+  decision to keep one side and discard the other's history, so `merge`,
+  `pull` and `push` don't attempt anything: they print two ready-to-run recovery
   commands, one to re-adopt the remote's version, one to force the local
   version onto the remote. See
   [`test/scenarios/diverged-unrelated-history/README.md`](test/scenarios/diverged-unrelated-history/README.md)

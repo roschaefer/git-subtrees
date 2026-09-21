@@ -21,6 +21,8 @@ source "$script_dir/lib/common.sh"
 source "$script_dir/lib/init.sh"
 # shellcheck source=lib/fetch.sh
 source "$script_dir/lib/fetch.sh"
+# shellcheck source=lib/merge.sh
+source "$script_dir/lib/merge.sh"
 # shellcheck source=lib/pull.sh
 source "$script_dir/lib/pull.sh"
 # shellcheck source=lib/prune.sh
@@ -45,7 +47,8 @@ Commands:
   diff [--base <b>] [path...]    show file changes that push would send
   init <path> <url>              one-time bootstrap: register a remote and add/adopt it
   fetch [path...]                fetch every subtree's remote (default: all)
-  pull [path...]                 squash-merge upstream changes into subtree paths
+  merge [path...]                squash-merge already-fetched changes into subtree paths
+  pull [path...]                 fetch, then merge
   prune [path...]                prune stale remote-tracking refs for subtree remotes
   push [--base <b>] [path...]    push local subtree changes upstream
   status [--base <b>] [path...]  show sync state of every remote
@@ -76,6 +79,10 @@ main() {
     fetch)
       shift
       cmd_fetch "$@"
+      ;;
+    merge)
+      shift
+      cmd_merge "$@"
       ;;
     pull)
       shift

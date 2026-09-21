@@ -154,3 +154,21 @@ setup() {
   [[ "$output" == *"share no history"* ]]
   [ ! -f .git/MERGE_HEAD ]
 }
+
+@test "pull: stops after a conflict instead of failing the remaining subtrees" {
+  local upstream_b="$BATS_TEST_TMPDIR/upstream-b.git"
+  scenario_diverged_common_ancestor "$monorepo" "$upstream"
+  make_bare_repo "$upstream_b"
+  seed_bare_repo "$upstream_b" "seed"
+  add_subtree "$monorepo" "$upstream_b" "vendor/b"
+  seed_bare_repo "$upstream_b" "upstream change"
+  cd "$monorepo"
+
+  run cmd_pull vendor/a vendor/b
+
+  [ "$status" -eq 1 ]
+  [ -f .git/MERGE_HEAD ]
+  [[ "$output" == *"Failed: vendor/a"* ]]
+  [[ "$output" == *"Not merged: vendor/b"* ]]
+  [[ "$output" != *"working tree has modifications"* ]]
+}
