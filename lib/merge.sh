@@ -30,6 +30,13 @@ require_usable_names() {
   fi
 }
 
+# True while a merge is waiting to be concluded (conflicts, or a squash
+# merge that stopped before committing). git subtree refuses to start
+# another merge in that state, so the multi-path loops must stop merging.
+merge_in_progress() {
+  git rev-parse --quiet --verify MERGE_HEAD >/dev/null 2>&1
+}
+
 # Merges a single subtree path from its already-fetched tracking ref;
 # never touches the network. `verb` (merge|pull) only selects the wording
 # of the messages, so pull keeps reporting "pulled" while sharing this code.
@@ -77,8 +84,13 @@ merge_one() {
   # resolves as a revision, and dies with "Use --prefix instead of bare
   # filenames" the moment you pass a bare path/remote name as that 2nd
   # arg. So replicate the fallback ourselves instead, using the split SHA
-  # classify_subtree already resolved.
+  # classify_subtree already resolved. Only pull may do so: merge promises
+  # not to touch the network.
   if [[ -n "$SUBTREE_SPLIT_SHA" ]] && ! git cat-file -e "${SUBTREE_SPLIT_SHA}^{commit}" 2>/dev/null; then
+    if [[ "$verb" != pull ]]; then
+      log_err "$path: the last synced upstream commit ${SUBTREE_SPLIT_SHA:0:7} is not available locally -- run 'git subtrees pull $path' to fetch it"
+      return 1
+    fi
     if git fetch --quiet -- "$path" "$SUBTREE_SPLIT_SHA" 2>/dev/null &&
       ! git merge-base "$SUBTREE_SPLIT_SHA" "$SUBTREE_TARGET_REF" >/dev/null 2>&1; then
       print_unrelated_history_guidance "$path" "$branch"
@@ -118,16 +130,39 @@ cmd_merge() {
     is_subtree_path "$path" || die "not a subtree path: $path"
   done
 
-  local failures=()
+  local failures=() skipped=()
   local -A seen=()
   for path in "${paths[@]}"; do
     [[ -n "${seen[$path]:-}" ]] && continue
     seen[$path]=1
+    if merge_in_progress; then
+      skipped+=("$path")
+      continue
+    fi
     merge_one "$path" "$branch" || failures+=("$path")
   done
 
+  report_merge_results "${skipped[@]}" -- "${failures[@]}"
+}
+
+# Shared epilogue of cmd_merge/cmd_pull: `skipped... -- failures...`.
+# Exits 1 if anything was skipped or failed.
+report_merge_results() {
+  local skipped=() failures=()
+  while [[ $# -gt 0 && "$1" != "--" ]]; do
+    skipped+=("$1")
+    shift
+  done
+  shift
+  failures=("$@")
+
+  if [[ ${#skipped[@]} -gt 0 ]]; then
+    log_err "Not merged: ${skipped[*]} -- a merge is in progress; resolve it, run 'git commit', then re-run"
+  fi
   if [[ ${#failures[@]} -gt 0 ]]; then
     log_err "Failed: ${failures[*]}"
+  fi
+  if [[ ${#skipped[@]} -gt 0 || ${#failures[@]} -gt 0 ]]; then
     exit 1
   fi
 }

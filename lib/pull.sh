@@ -62,18 +62,19 @@ cmd_pull() {
   fetch_all_parallel_for_branch "$branch" "${paths[@]}"
   local failures=("${FETCH_FAILURES[@]}")
 
-  local i path
+  local i path skipped=()
   for i in "${!FETCH_PATHS[@]}"; do
     path="${FETCH_PATHS[$i]}"
     print_fetch_output "$i"
 
     fetch_failed_for_path "$path" && continue
 
+    if merge_in_progress; then
+      skipped+=("$path")
+      continue
+    fi
     pull_one "$path" "$branch" skip-fetch || failures+=("$path")
   done
 
-  if [[ ${#failures[@]} -gt 0 ]]; then
-    log_err "Failed: ${failures[*]}"
-    exit 1
-  fi
+  report_merge_results "${skipped[@]}" -- "${failures[@]}"
 }
