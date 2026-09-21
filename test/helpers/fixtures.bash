@@ -74,6 +74,8 @@ load_lib() {
   # shellcheck disable=SC1091
   source "$lib_dir/fetch.sh"
   # shellcheck disable=SC1091
+  source "$lib_dir/merge.sh"
+  # shellcheck disable=SC1091
   source "$lib_dir/pull.sh"
   # shellcheck disable=SC1091
   source "$lib_dir/prune.sh"

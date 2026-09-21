@@ -37,7 +37,8 @@ _git-subtrees() {
     'diff:show file changes that push would send'
     'init:one-time bootstrap of a path/url pair'
     'fetch:fetch every subtree'\''s remote'
-    'pull:squash-merge upstream changes into subtree paths'
+    'merge:squash-merge fetched changes into subtree paths'
+    'pull:fetch, then merge'
     'prune:prune stale remote-tracking refs'
     'push:push local subtree changes upstream'
     'status:show sync state of every remote'
@@ -49,7 +50,7 @@ _git-subtrees() {
   fi
 
   case ${words[2]} in
-    fetch | pull)
+    fetch | merge | pull)
       paths=("${(@f)$(__git_subtrees_paths)}")
       _describe -t paths 'subtree path' paths
       ;;
