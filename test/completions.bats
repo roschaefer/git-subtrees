@@ -54,3 +54,26 @@ complete_words() {
   run complete_words git-subtrees push --base = main vend
   [ "$output" = "vendor/a" ]
 }
+
+# `compgen -W` expands its word list, so a branch named like $(cmd) -- valid,
+# and any remote can publish one -- would run cmd on <TAB>.
+@test "completion: a branch name with a command substitution is never run" {
+  local name='x$(touch${IFS}pwned)'
+  git update-ref "refs/heads/$name" HEAD
+
+  run complete_words git-subtrees push --base x
+  [ ! -e pwned ]
+  # Offered shell-quoted, so running the completed line doesn't run it either.
+  [ "$output" = 'x\$\(touch\$\{IFS\}pwned\)' ]
+  [ "$(eval "printf '%s' $output")" = "$name" ]
+}
+
+@test "completion: a subtree path with a command substitution is never run" {
+  local name='vendor/$(touch${IFS}pwned)'
+  mkdir -p "$name"
+  git remote add "$name" "$BATS_TEST_TMPDIR/unused.git"
+
+  run complete_words git-subtrees push 'vendor/$'
+  [ ! -e pwned ]
+  [ "$output" = 'vendor/\$\(touch\$\{IFS\}pwned\)' ]
+}

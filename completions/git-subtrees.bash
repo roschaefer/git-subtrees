@@ -18,6 +18,21 @@ __git_subtrees_paths() {
   done < <(git remote 2>/dev/null)
 }
 
+# Sets COMPREPLY to the lines on stdin that start with $1, shell-quoted.
+# Branch names and subtree paths never go through `compgen -W`: it expands
+# its word list, so a branch named like origin/$(cmd) -- a valid name that
+# any remote can publish -- would run cmd on <TAB>. Quoting keeps such a
+# name from running when the completed command line is executed.
+__git_subtrees_reply() {
+  local prefix="$1" word quoted
+  COMPREPLY=()
+  while IFS= read -r word; do
+    [[ -n "$word" && "$word" == "$prefix"* ]] || continue
+    printf -v quoted '%q' "$word"
+    COMPREPLY+=("$quoted")
+  done
+}
+
 # Branches usable as --base: local and remote-tracking.
 __git_subtrees_branches() {
   git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null
@@ -54,17 +69,26 @@ _git_subtrees() {
   cmd="${COMP_WORDS[start]}"
   case "$cmd" in
     fetch | merge | pull)
-      mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -h --help" -- "$cur")
+      __git_subtrees_reply "$cur" < <(
+        __git_subtrees_paths
+        printf '%s\n' -h --help
+      )
       ;;
     diff | push | status)
       if __git_subtrees_completing_base; then
-        mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_branches)" -- "$base_prefix")
+        __git_subtrees_reply "$base_prefix" < <(__git_subtrees_branches)
       else
-        mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) --base -h --help" -- "$cur")
+        __git_subtrees_reply "$cur" < <(
+          __git_subtrees_paths
+          printf '%s\n' --base -h --help
+        )
       fi
       ;;
     prune)
-      mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -n --dry-run -h --help" -- "$cur")
+      __git_subtrees_reply "$cur" < <(
+        __git_subtrees_paths
+        printf '%s\n' -n --dry-run -h --help
+      )
       ;;
     init)
       if ((COMP_CWORD == start + 1)); then
