@@ -252,3 +252,44 @@ setup() {
   [[ "$output" == *"using its 'main' branch"* ]]
   [ -f vendor/a/file.txt ]
 }
+
+@test "init: the move-aside retry command keeps --base" {
+  hermetic_git_config
+  scenario_init_unrelated_content "$monorepo" "$upstream"
+  cd "$monorepo"
+  git checkout -q -b feature
+
+  run cmd_init --base main "vendor/a" "$upstream"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git subtrees init --base main vendor/a $upstream"* ]]
+}
+
+@test "init: drops a stale tracking ref for a branch the remote no longer has" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+  # Left over from an earlier fetch of a remote 'feature' that is gone now.
+  git remote add vendor/a "$upstream"
+  git fetch -q vendor/a
+  git update-ref refs/remotes/vendor/a/feature refs/remotes/vendor/a/main
+
+  run cmd_init "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"using its 'main' branch"* ]]
+  run git rev-parse --verify --quiet refs/remotes/vendor/a/feature
+  [ "$status" -ne 0 ]
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "missing-at-head" ]
+}
+
+@test "init: a base branch git-subtree can't use is an error, not 'nothing to add'" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+  git update-ref refs/heads/-base main
+
+  run cmd_init --base refs/heads/-base "vendor/a" "$upstream"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"-base: git-subtree cannot use a branch name starting with '-'"* ]]
+  [[ "$output" != *"nothing to add"* ]]
+}

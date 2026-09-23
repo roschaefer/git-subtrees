@@ -34,7 +34,12 @@ init_fetch() {
     fetch_err="$(fetch_one "$path" "$branch" 2>&1 1>&3)" || fetch_status=$?
   } 3>&1
   ((fetch_status == 0)) && return 0
-  remote_missing_branch "$path" "$branch" && return 2
+  if remote_missing_branch "$path" "$branch"; then
+    # A tracking ref left from an earlier fetch would make status and push
+    # compare against a branch the remote no longer has.
+    git update-ref -d "$(target_ref_for "$path" "$branch")" 2>/dev/null || true
+    return 2
+  fi
   printf '%s\n' "$fetch_err" >&2
   die "$path: fetch failed"
 }
@@ -111,7 +116,8 @@ cmd_init() {
       log_ok "$path: remote has no '$branch' branch yet -- nothing to add (pass --base <branch> to add another branch)"
       return 0
     fi
-    if [[ "$base_branch" != "$branch" ]] && usable_with_git_subtree "$base_branch"; then
+    usable_with_git_subtree "$base_branch" || die "$base_branch: git-subtree cannot use a branch name starting with '-' -- pass another --base"
+    if [[ "$base_branch" != "$branch" ]]; then
       rc=0
       init_fetch "$path" "$base_branch" || rc=$?
     fi
@@ -138,7 +144,9 @@ cmd_init() {
       ;;
     unrelated-history)
       log_err "$path: directory exists with content unrelated to $url"
-      log_err "move it aside and re-run: mv $path $path.bak && git subtrees init $path $url"
+      local retry="git subtrees init"
+      [[ -n "$base" ]] && retry+=" --base $(shell_quote "$base")"
+      log_err "move it aside and re-run: mv $path $path.bak && $retry $path $url"
       exit 1
       ;;
     *)
