@@ -39,15 +39,33 @@ init_fetch() {
   die "$path: fetch failed"
 }
 
-# Prints the name the monorepo's base branch has on a subtree remote:
-# "main" for refs/heads/main as well as for origin/main. Fails if no base
-# branch resolves (see resolve_base_ref).
+# Prints the name the monorepo's base branch has on a subtree remote: "main"
+# for refs/heads/main as well as for any remote-tracking ref of it, e.g.
+# origin/main or upstream/main. A symbolic ref such as origin/HEAD is
+# followed first. Fails if no base branch resolves (see resolve_base_ref).
 base_branch_name() {
-  local ref name
+  local ref target name remote tracking=""
   ref="$(resolve_base_ref "$1")" || return 1
-  name="${ref#refs/heads/}"
-  name="${name#refs/remotes/}"
-  printf '%s\n' "${name#origin/}"
+  target="$(git symbolic-ref --quiet "$ref" 2>/dev/null)" && ref="$target"
+  case "$ref" in
+    refs/heads/*)
+      name="${ref#refs/heads/}"
+      ;;
+    refs/remotes/*)
+      name="${ref#refs/remotes/}"
+      # Remote names may contain '/', so strip the longest one that matches.
+      while IFS= read -r remote; do
+        if [[ "$name" == "$remote"/* && ${#remote} -gt ${#tracking} ]]; then
+          tracking="$remote"
+        fi
+      done < <(git remote)
+      [[ -n "$tracking" ]] && name="${name#"$tracking"/}"
+      ;;
+    *)
+      name="${ref#refs/*/}"
+      ;;
+  esac
+  printf '%s\n' "$name"
 }
 
 cmd_init() {

@@ -18,6 +18,24 @@ __git_subtrees_paths() {
   done < <(git remote 2>/dev/null)
 }
 
+# Counts the positional arguments before the word being completed, skipping
+# options and --base's value (bash may split "--base=main" into "--base",
+# "=" and "main"). $1 is the index of the subcommand in COMP_WORDS.
+__git_subtrees_positionals() {
+  local i count=0
+  for ((i = $1 + 1; i < COMP_CWORD; i++)); do
+    case "${COMP_WORDS[i]}" in
+      --base)
+        [[ "${COMP_WORDS[i + 1]:-}" == = ]] && ((i++))
+        ((i++))
+        ;;
+      -*) ;;
+      *) ((count++)) ;;
+    esac
+  done
+  printf '%s\n' "$count"
+}
+
 _git_subtrees() {
   local cur start cmd
   cur="${COMP_WORDS[COMP_CWORD]}"
@@ -52,7 +70,7 @@ _git_subtrees() {
         mapfile -t COMPREPLY < <(compgen -W "$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -- "$cur")
       elif [[ "$cur" == -* ]]; then
         mapfile -t COMPREPLY < <(compgen -W "--base -h --help" -- "$cur")
-      elif ((COMP_CWORD == start + 1)); then
+      elif (($(__git_subtrees_positionals "$start") == 0)); then
         mapfile -t COMPREPLY < <(compgen -d -- "$cur")
       fi
       ;;

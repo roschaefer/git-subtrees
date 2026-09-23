@@ -19,6 +19,33 @@ function __git_subtrees_paths
     end
 end
 
+# True while the word being completed is init's first positional argument
+# (the path): options and --base's value don't count, and the word right
+# after --base is its value, not the path.
+function __git_subtrees_init_needs_path
+    set -l seen_init 0
+    set -l count 0
+    set -l skip 0
+    for token in (commandline -opc)
+        if test $seen_init = 0
+            test "$token" = init; and set seen_init 1
+            continue
+        end
+        if test $skip = 1
+            set skip 0
+            continue
+        end
+        switch $token
+            case --base
+                set skip 1
+            case '-*'
+            case '*'
+                set count (math $count + 1)
+        end
+    end
+    test $seen_init = 1 -a $count = 0 -a $skip = 0
+end
+
 set -l commands diff init fetch merge pull prune push status
 
 complete -c git-subtrees -f
@@ -42,4 +69,4 @@ complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -s h -l help -d 
 
 complete -c git-subtrees -n "__fish_seen_subcommand_from init" -s h -l help -d 'show usage'
 complete -c git-subtrees -n "__fish_seen_subcommand_from init" -l base -x -a "(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -d 'monorepo base branch to add from'
-complete -c git-subtrees -n "__fish_seen_subcommand_from init; and test (count (commandline -opc)) -le 2" -a "(__fish_complete_directories)"
+complete -c git-subtrees -n __git_subtrees_init_needs_path -a "(__fish_complete_directories)"
