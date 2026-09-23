@@ -91,3 +91,18 @@ setup() {
   [[ "$output" == *"push [--base <b>]"* ]]
   [[ "$output" == *"status [--base <b>]"* ]]
 }
+
+@test "cli: every command refuses nested subtrees before doing anything" {
+  load 'scenarios/nested-subtrees/setup'
+  scenario_nested_subtrees "$monorepo" "$upstream"
+  cd "$monorepo"
+  local before cmd
+  before="$(git rev-parse HEAD)"
+  for cmd in status diff fetch merge pull push prune; do
+    run "$entrypoint" "$cmd"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"nested subtrees are not supported: 'vendor/pkg' and 'vendor/pkg/extra' overlap"* ]]
+  done
+  [ "$(git rev-parse HEAD)" = "$before" ]
+  [ -z "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
+}

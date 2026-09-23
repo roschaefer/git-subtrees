@@ -20,8 +20,10 @@ found. Everything follows from two rules:
    subtree syncs with its remote's `main`. On `feature-x`, every subtree
    syncs with its remote's `feature-x`.
 
-Subtrees can't be nested. Git doesn't allow one remote name to be a prefix
-of another, so `vendor/pkg` and `vendor/pkg/extra` can't both be remotes.
+Subtrees can't be nested: `vendor/pkg` and `vendor/pkg/extra` can't both be
+subtrees. Git 2.55+ already refuses such remote names; with older versions,
+every command stops with an error
+([why](test/scenarios/nested-subtrees/README.md)).
 
 ## Commands
 
@@ -52,8 +54,10 @@ starting a feature branch doesn't create empty branches on every remote.
 If none of these work, `push` asks for `--base` instead of guessing.
 
 **Setting up a subtree.** `git subtrees init <path> <url>` adds the remote
-if it's missing. It never changes the URL of an existing remote. If
-`<path>` doesn't exist yet, it runs `git subtree add` to bring in the
+if it's missing. It never changes the URL of an existing remote. If the
+remote has no branch named like your current branch (e.g. it's still
+empty), that's all it does: your first `push` creates the branch. Otherwise,
+if `<path>` doesn't exist yet, it runs `git subtree add` to bring in the
 remote's content. If `<path>` already has content that isn't related to the
 remote, `init` stops and asks you to move the folder aside and merge it
 back by hand.
@@ -78,6 +82,8 @@ More scenarios:
 
 - [`init-unrelated-content`](test/scenarios/init-unrelated-content/README.md):
   `init` on a folder whose content has nothing to do with the remote.
+- [`nested-subtrees`](test/scenarios/nested-subtrees/README.md): why one
+  subtree inside another is refused.
 - [`shared-remote-url`](test/scenarios/shared-remote-url/README.md): two
   subtrees with the same remote URL act like two clones of one repo.
 

@@ -89,6 +89,36 @@ discover_subtrees() {
       ALL_PATHS+=("$remote")
     fi
   done < <(git remote)
+
+  local path other
+  for path in "${ALL_PATHS[@]}"; do
+    if other="$(overlapping_remote "$path")"; then
+      die_nested "$path" "$other"
+    fi
+  done
+}
+
+# Prints the first remote in ALL_REMOTES nested inside, or containing, $1.
+# Git 2.55+ refuses such remote names, older versions accept them.
+overlapping_remote() {
+  local name="$1" remote
+  for remote in "${ALL_REMOTES[@]}"; do
+    if [[ "$remote" == "$name"/* || "$name" == "$remote"/* ]]; then
+      printf '%s\n' "$remote"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Nested subtrees are refused outright rather than half-supported: the outer
+# subtree's content includes the inner one, so it can never match its own
+# remote, and its tracking refs (refs/remotes/<outer>/*) include the inner
+# remote's. Every state reported for it would be wrong, and the recovery
+# commands printed for unrelated history would delete or publish the inner
+# subtree.
+die_nested() {
+  die "nested subtrees are not supported: '$1' and '$2' overlap -- remove one with 'git remote remove <name>'"
 }
 
 is_subtree_path() {
