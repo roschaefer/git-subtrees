@@ -156,3 +156,12 @@ setup() {
   run "$entrypoint" status
   [ "$status" -eq 0 ]
 }
+
+@test "cli: top-level help lists every command's --base option" {
+  run "$entrypoint" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"diff [--base <b>]"* ]]
+  [[ "$output" == *"init [--base <b>] <path> <url>"* ]]
+  [[ "$output" == *"push [--base <b>]"* ]]
+  [[ "$output" == *"status [--base <b>]"* ]]
+}
