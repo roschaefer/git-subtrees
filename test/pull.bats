@@ -5,6 +5,7 @@ setup() {
   load 'scenarios/pull-ahead/setup'
   load 'scenarios/diverged-common-ancestor/setup'
   load 'scenarios/diverged-unrelated-history/setup'
+  load 'scenarios/shared-remote-url/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -171,4 +172,22 @@ setup() {
   [[ "$output" == *"Failed: vendor/a"* ]]
   [[ "$output" == *"Not merged: vendor/b"* ]]
   [[ "$output" != *"working tree has modifications"* ]]
+}
+
+@test "pull: two subtrees sharing a remote URL -- one's push is pulled into the other" {
+  scenario_shared_remote_url "$monorepo" "$upstream"
+  cd "$monorepo"
+  echo "a change" >>vendor/a/file.txt
+  git add vendor/a
+  git commit -q -m "change a"
+  push_one "vendor/a" "main"
+  fetch_one "vendor/b"
+
+  classify_subtree "vendor/b" "main"
+  [ "$SUBTREE_STATE" = "pull" ]
+
+  run pull_one "vendor/b" "main"
+  [ "$status" -eq 0 ]
+  run grep -qx "a change" vendor/b/file.txt
+  [ "$status" -eq 0 ]
 }

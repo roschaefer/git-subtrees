@@ -6,6 +6,7 @@ setup() {
   load 'scenarios/diverged-unrelated-history/setup'
   load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
+  load 'scenarios/shared-remote-url/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -223,4 +224,25 @@ remote_has_branch() {
   [[ "$output" == *"--base needs a branch name"* ]]
   run remote_has_branch "$upstream" feature
   [ "$status" -ne 0 ]
+}
+
+@test "push: two subtrees sharing a remote URL -- the second push is rejected, not overwritten" {
+  scenario_shared_remote_url "$monorepo" "$upstream"
+  cd "$monorepo"
+  echo "a change" >>vendor/a/file.txt
+  echo "b change" >vendor/b/new.txt
+  git add vendor/a vendor/b
+  git commit -q -m "change both"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  run push_one "vendor/b" "main"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"vendor/b: push failed"* ]]
+
+  local verify="$BATS_TEST_TMPDIR/verify"
+  git clone -q "$upstream" "$verify" 2>/dev/null
+  run grep -qx "a change" "$verify/file.txt"
+  [ "$status" -eq 0 ]
+  [ ! -e "$verify/new.txt" ]
 }
