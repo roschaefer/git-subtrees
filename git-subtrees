@@ -45,7 +45,7 @@ subtree remote.
 
 Commands:
   diff [--base <b>] [path...]    show file changes that push would send
-  init <path> <url>              one-time bootstrap: register a remote and add/adopt it
+  init [--base <b>] <path> <url> one-time bootstrap: register a remote and add/adopt it
   fetch [path...]                fetch every subtree's remote (default: all)
   merge [path...]                squash-merge already-fetched changes into subtree paths
   pull [path...]                 fetch, then merge

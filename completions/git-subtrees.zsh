@@ -75,9 +75,15 @@ _git-subtrees() {
       fi
       ;;
     init)
-      if ((CURRENT == 3)); then
-        _files -/
-      fi
+      # _arguments counts positionals from words[2]; drop "git-subtrees" so
+      # "init" is the command name and the path is argument 1.
+      shift words
+      ((CURRENT--))
+      _arguments \
+        '--base=[monorepo base branch to add from when the remote lacks the current one]:branch:__git_subtrees_branches' \
+        '(-h --help)'{-h,--help}'[show usage]' \
+        '1:subtree path:_files -/' \
+        '2:url:'
       ;;
   esac
 }

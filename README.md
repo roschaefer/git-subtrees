@@ -55,13 +55,14 @@ starting a feature branch doesn't create empty branches on every remote.
 If none of these work, `push` asks for `--base` instead of guessing.
 
 **Setting up a subtree.** `git subtrees init <path> <url>` adds the remote
-if it's missing. It never changes the URL of an existing remote. If the
-remote has no branch named like your current branch (e.g. it's still
-empty), that's all it does: your first `push` creates the branch. Otherwise,
-if `<path>` doesn't exist yet, it runs `git subtree add` to bring in the
-remote's content. If `<path>` already has content that isn't related to the
-remote, `init` stops and asks you to move the folder aside and merge it
-back by hand.
+if it's missing. It never changes the URL of an existing remote. If
+`<path>` doesn't exist yet, it runs `git subtree add` to bring in the
+remote's content. On a branch the remote doesn't have yet, it adds the
+remote's base branch instead (found like for `push`), and your first `push`
+creates your branch on top of it. If the remote has neither (e.g. it's
+still empty), `init` only registers the remote. If `<path>` already has
+content that isn't related to the remote, `init` stops and asks you to move
+the folder aside and merge it back by hand.
 
 ## Sync states
 
@@ -81,6 +82,8 @@ state.
 
 More scenarios:
 
+- [`init-on-feature-branch`](test/scenarios/init-on-feature-branch/README.md):
+  `init` on a branch the remote doesn't have yet.
 - [`init-unrelated-content`](test/scenarios/init-unrelated-content/README.md):
   `init` on a folder whose content has nothing to do with the remote.
 - [`nested-subtrees`](test/scenarios/nested-subtrees/README.md): why one
