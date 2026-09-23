@@ -22,8 +22,16 @@ Nesting breaks the tool's assumptions:
   (deleting the inner subtree) or force-push it with the inner subtree's
   files included.
 
+The last point holds even if `vendor/pkg/extra` has no folder, so any remote
+overlapping a subtree path is refused, not just two subtrees.
+
+Removing the inner remote isn't enough on its own: `git remote remove
+vendor/pkg/extra` keeps `refs/remotes/vendor/pkg/extra/*`, since the outer
+remote's fetch refspec covers them too, and they'd then look like branches
+of `vendor/pkg`. The error message includes the command that deletes them.
+
 Expected result: every command fails with "nested subtrees are not
-supported" before doing anything, and `git subtrees init` refuses to
-register a nested remote.
+supported" before doing anything and prints the two ways to fix it, and
+`git subtrees init` refuses to register a nested remote.
 
 Built by `scenario_nested_subtrees` in `setup.bash`.

@@ -20,9 +20,10 @@ found. Everything follows from two rules:
    subtree syncs with its remote's `main`. On `feature-x`, every subtree
    syncs with its remote's `feature-x`.
 
-Subtrees can't be nested: `vendor/pkg` and `vendor/pkg/extra` can't both be
-subtrees. Git 2.51+ already refuses such remote names; with older versions,
-every command stops with an error
+Subtrees can't be nested: next to a subtree `vendor/pkg`, there can't be a
+remote `vendor/pkg/extra`, even one without a folder. Git 2.51+ already
+refuses such remote names; with older versions, every command stops with
+an error and tells you how to fix it
 ([why](test/scenarios/nested-subtrees/README.md)).
 
 ## Commands

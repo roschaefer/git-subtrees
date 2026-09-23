@@ -106,3 +106,31 @@ setup() {
   [ "$(git rev-parse HEAD)" = "$before" ]
   [ -z "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
 }
+
+@test "cli: a remote overlapping a subtree is refused even without a folder of its own" {
+  load 'scenarios/nested-subtrees/setup'
+  scenario_nested_subtrees "$monorepo" "$upstream"
+  cd "$monorepo"
+  git rm -q -r vendor/pkg/extra
+  git commit -q -m "drop the inner folder, keep its remote"
+
+  run "$entrypoint" status
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"nested subtrees are not supported: 'vendor/pkg' and 'vendor/pkg/extra' overlap"* ]]
+}
+
+@test "cli: removing the inner remote with the suggested commands leaves the outer subtree usable" {
+  load 'scenarios/nested-subtrees/setup'
+  scenario_nested_subtrees "$monorepo" "$upstream"
+  cd "$monorepo"
+  git fetch -q vendor/pkg/extra
+  [ -n "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
+
+  git remote remove vendor/pkg/extra
+  git for-each-ref --format='delete %(refname)' refs/remotes/vendor/pkg/extra/ | git update-ref --no-deref --stdin
+
+  [ -z "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
+  run "$entrypoint" status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/pkg -> $upstream"* ]]
+}

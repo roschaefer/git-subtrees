@@ -15,7 +15,7 @@ setup() {
 
   run cmd_init "vendor/a/extra" "$upstream"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"nested subtrees are not supported: 'vendor/a/extra' and 'vendor/a' overlap"* ]]
+  [[ "$output" == *"nested subtrees are not supported: 'vendor/a' and 'vendor/a/extra' overlap"* ]]
   run git remote get-url vendor/a/extra
   [ "$status" -ne 0 ]
 }

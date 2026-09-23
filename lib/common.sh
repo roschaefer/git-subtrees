@@ -116,9 +116,38 @@ overlapping_remote() {
 # remote, and its tracking refs (refs/remotes/<outer>/*) include the inner
 # remote's. Every state reported for it would be wrong, and the recovery
 # commands printed for unrelated history would delete or publish the inner
-# subtree.
+# subtree. The inner remote corrupts the outer's refs even without a folder
+# of its own, so any remote overlapping a subtree path counts.
+#
+# Prints "'<outer>' and '<inner>'" for two overlapping names, in that order.
+overlap_pair() {
+  if [[ "$2" == "$1"/* ]]; then
+    printf "'%s' and '%s'" "$1" "$2"
+  else
+    printf "'%s' and '%s'" "$2" "$1"
+  fi
+}
+
+# `git remote remove <inner>` keeps the inner remote's tracking refs, since
+# the outer remote's fetch refspec covers them too; they would then look like
+# branches of the outer remote. Removing the outer remote leaves nothing
+# behind.
 die_nested() {
-  die "nested subtrees are not supported: '$1' and '$2' overlap -- remove one with 'git remote remove <name>'"
+  local outer="$1" inner="$2"
+  if [[ "$outer" == "$inner"/* ]]; then
+    outer="$2"
+    inner="$1"
+  fi
+  log_err "nested subtrees are not supported: $(overlap_pair "$outer" "$inner") overlap -- fix it with one of:"
+  cat >&2 <<EOF
+
+  git remote remove $outer
+
+  git remote remove $inner
+  git for-each-ref --format='delete %(refname)' refs/remotes/$inner/ | git update-ref --no-deref --stdin
+
+EOF
+  exit 1
 }
 
 is_subtree_path() {

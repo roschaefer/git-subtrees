@@ -35,7 +35,7 @@ cmd_init() {
   discover_subtrees
   local nested
   if nested="$(overlapping_remote "$path")"; then
-    die_nested "$path" "$nested"
+    die "nested subtrees are not supported: $(overlap_pair "$path" "$nested") overlap"
   fi
 
   local existing_url
