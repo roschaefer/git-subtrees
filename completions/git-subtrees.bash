@@ -18,8 +18,43 @@ __git_subtrees_paths() {
   done < <(git remote 2>/dev/null)
 }
 
+# Sets COMPREPLY to the lines on stdin that start with $1, shell-quoted.
+# Branch names, subtree paths and directory names can come from a remote or
+# a cloned repo, so they never go through `compgen -W`: it expands its word
+# list, and a branch named like origin/$(cmd) -- a valid name that any
+# remote can publish -- would run cmd on <TAB>. Quoting keeps such a name
+# from running when the completed command line is executed.
+__git_subtrees_reply() {
+  local prefix="$1" word quoted
+  COMPREPLY=()
+  while IFS= read -r word; do
+    [[ -n "$word" && "$word" == "$prefix"* ]] || continue
+    printf -v quoted '%q' "$word"
+    COMPREPLY+=("$quoted")
+  done
+}
+
+# Branches usable as --base: local and remote-tracking.
+__git_subtrees_branches() {
+  git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null
+}
+
+# True if the word being completed is --base's value. bash splits words at
+# "=" (it's in COMP_WORDBREAKS), so the value can follow "--base" or
+# "--base =", and for "--base=" the current word is the "=" itself. Sets
+# base_prefix to the part of the value typed so far.
+__git_subtrees_completing_base() {
+  local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD - 1]:-}"
+  base_prefix="$cur"
+  if [[ "$prev" == --base ]]; then
+    [[ "$cur" == = ]] && base_prefix=""
+    return 0
+  fi
+  [[ "$prev" == = && "${COMP_WORDS[COMP_CWORD - 2]:-}" == --base ]]
+}
+
 _git_subtrees() {
-  local cur start cmd
+  local cur start cmd base_prefix
   cur="${COMP_WORDS[COMP_CWORD]}"
 
   # Skip past "git subtrees" when dispatched by git-completion.bash, or
@@ -35,21 +70,31 @@ _git_subtrees() {
   cmd="${COMP_WORDS[start]}"
   case "$cmd" in
     fetch | merge | pull)
-      mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -h --help" -- "$cur")
+      __git_subtrees_reply "$cur" < <(
+        __git_subtrees_paths
+        printf '%s\n' -h --help
+      )
       ;;
     diff | push | status)
-      if [[ "${COMP_WORDS[COMP_CWORD - 1]}" == --base ]]; then
-        mapfile -t COMPREPLY < <(compgen -W "$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -- "$cur")
+      if __git_subtrees_completing_base; then
+        __git_subtrees_reply "$base_prefix" < <(__git_subtrees_branches)
       else
-        mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) --base -h --help" -- "$cur")
+        __git_subtrees_reply "$cur" < <(
+          __git_subtrees_paths
+          printf '%s\n' --base -h --help
+        )
       fi
       ;;
     prune)
-      mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -n --dry-run -h --help" -- "$cur")
+      __git_subtrees_reply "$cur" < <(
+        __git_subtrees_paths
+        printf '%s\n' -n --dry-run -h --help
+      )
       ;;
     init)
       if ((COMP_CWORD == start + 1)); then
-        mapfile -t COMPREPLY < <(compgen -d -- "$cur")
+        # compgen -d only lists matching directories; quote them like the rest.
+        __git_subtrees_reply "" < <(compgen -d -- "$cur")
       fi
       ;;
     *) ;;
