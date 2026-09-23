@@ -89,6 +89,69 @@ discover_subtrees() {
       ALL_PATHS+=("$remote")
     fi
   done < <(git remote)
+
+  local path other
+  for path in "${ALL_PATHS[@]}"; do
+    if other="$(overlapping_remote "$path")"; then
+      die_nested "$path" "$other"
+    fi
+  done
+}
+
+# Prints the first remote in ALL_REMOTES nested inside, or containing, $1.
+# Git 2.51+ refuses such remote names, older versions accept them.
+overlapping_remote() {
+  local name="$1" remote
+  for remote in "${ALL_REMOTES[@]}"; do
+    if [[ "$remote" == "$name"/* || "$name" == "$remote"/* ]]; then
+      printf '%s\n' "$remote"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Nested subtrees are refused outright rather than half-supported: the outer
+# subtree's content includes the inner one, so it can never match its own
+# remote, and its tracking refs (refs/remotes/<outer>/*) include the inner
+# remote's. Every state reported for it would be wrong, and the recovery
+# commands printed for unrelated history would delete or publish the inner
+# subtree. The inner remote corrupts the outer's refs even without a folder
+# of its own, so any remote overlapping a subtree path counts.
+#
+# Prints "'<outer>' and '<inner>'" for two overlapping names, in that order.
+overlap_pair() {
+  if [[ "$2" == "$1"/* ]]; then
+    printf "'%s' and '%s'" "$1" "$2"
+  else
+    printf "'%s' and '%s'" "$2" "$1"
+  fi
+}
+
+# `git remote remove <inner>` keeps the inner remote's tracking refs, since
+# the outer remote's fetch refspec covers them too; they would then look like
+# branches of the outer remote. Removing the outer remote leaves nothing
+# behind.
+die_nested() {
+  local outer="$1" inner="$2"
+  if [[ "$outer" == "$inner"/* ]]; then
+    outer="$2"
+    inner="$1"
+  fi
+  local q_outer q_inner q_refs
+  q_outer="$(shell_quote "$outer")"
+  q_inner="$(shell_quote "$inner")"
+  q_refs="$(shell_quote "refs/remotes/$inner/")"
+  log_err "nested subtrees are not supported: $(overlap_pair "$outer" "$inner") overlap -- fix it with one of:"
+  cat >&2 <<EOF
+
+  git remote remove $q_outer
+
+  git remote remove $q_inner
+  git for-each-ref --format='delete %(refname)' $q_refs | git update-ref --no-deref --stdin
+
+EOF
+  exit 1
 }
 
 is_subtree_path() {
@@ -120,6 +183,18 @@ target_ref_for() {
 # plain git builtins).
 usable_with_git_subtree() {
   [[ "$1" != -* ]]
+}
+
+# Prints $1 as one shell word for a ready-to-run command we print: as-is if
+# it only has characters no shell treats specially, else single-quoted. Git
+# accepts shell metacharacters in remote and branch names (e.g. "x;id"), so
+# every name in a printed command goes through this.
+shell_quote() {
+  if [[ "$1" =~ ^[A-Za-z0-9_./:@%+=,-]+$ ]]; then
+    printf '%s' "$1"
+  else
+    printf "'%s'" "${1//\'/\'\\\'\'}"
+  fi
 }
 
 regex_escape() {
@@ -345,18 +420,24 @@ classify_subtree() {
 print_unrelated_history_guidance() {
   local path="$1" branch="$2"
   local tmp_branch="tmp-split-$(basename "$path")"
+  local q_path q_branch q_tmp q_msg q_refspec
+  q_path="$(shell_quote "$path")"
+  q_branch="$(shell_quote "$branch")"
+  q_tmp="$(shell_quote "$tmp_branch")"
+  q_msg="$(shell_quote "remove $path before re-adopting it from its remote")"
+  q_refspec="$(shell_quote "$tmp_branch:$branch")"
   log_warn "$path: remote and local share no history -- pick one side manually:"
   cat >&2 <<EOF
 
   # accept the remote's version, discarding local changes under $path:
-  git rm -r $path
-  git commit -m "remove $path before re-adopting from remote '$path'"
-  git subtree add --prefix=$path $path $branch --squash
+  git rm -r $q_path
+  git commit -m $q_msg
+  git subtree add --prefix=$q_path $q_path $q_branch --squash
 
   # OR: accept the local (monorepo) version, overwriting $path's history:
-  git subtree split --prefix=$path -b $tmp_branch
-  git push --force $path $tmp_branch:$branch
-  git branch -D $tmp_branch
+  git subtree split --prefix=$q_path -b $q_tmp
+  git push --force $q_path $q_refspec
+  git branch -D $q_tmp
 
 EOF
 }

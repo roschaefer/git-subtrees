@@ -6,6 +6,34 @@ setup() {
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
 
+@test "init: refuses a path nested inside an existing subtree, without registering a remote" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  cd "$monorepo"
+
+  run cmd_init "vendor/a/extra" "$upstream"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"nested subtrees are not supported: 'vendor/a' and 'vendor/a/extra' overlap"* ]]
+  run git remote get-url vendor/a/extra
+  [ "$status" -ne 0 ]
+}
+
+@test "init: refuses a path containing an existing subtree, without registering a remote" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  cd "$monorepo"
+
+  run cmd_init "vendor" "$upstream"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"nested subtrees are not supported: 'vendor' and 'vendor/a' overlap"* ]]
+  run git remote get-url vendor
+  [ "$status" -ne 0 ]
+}
+
 @test "init: adds a fresh empty path" {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"

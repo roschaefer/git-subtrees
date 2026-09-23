@@ -400,3 +400,17 @@ add_monorepo_origin() {
   [ "$SUBTREE_CHANGES_VS_BASE" = "unresolved" ]
   [ -z "$SUBTREE_BASE_REF" ]
 }
+
+@test "shell_quote leaves plain words alone and quotes everything else as one word" {
+  [ "$(shell_quote vendor/a)" = "vendor/a" ]
+  [ "$(shell_quote 'x;id')" = "'x;id'" ]
+  local quoted
+  quoted="$(shell_quote "it's \$HOME")"
+  [ "$(eval "printf '%s' $quoted")" = "it's \$HOME" ]
+}
+
+@test "print_unrelated_history_guidance quotes names with shell metacharacters" {
+  run print_unrelated_history_guidance 'vendor/x;id' main
+  [[ "$output" == *"git rm -r 'vendor/x;id'"* ]]
+  [[ "$output" == *"git push --force 'vendor/x;id' 'tmp-split-x;id:main'"* ]]
+}

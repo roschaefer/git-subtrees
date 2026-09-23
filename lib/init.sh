@@ -32,6 +32,12 @@ cmd_init() {
   branch="$(current_branch)"
   usable_with_git_subtree "$branch" || die "$branch: git-subtree cannot use a branch name starting with '-' -- rename it and re-run"
 
+  discover_subtrees
+  local nested
+  if nested="$(overlapping_remote "$path")"; then
+    die "nested subtrees are not supported: $(overlap_pair "$path" "$nested") overlap"
+  fi
+
   local existing_url
   existing_url="$(git remote get-url -- "$path" 2>/dev/null || true)"
 

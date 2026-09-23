@@ -91,3 +91,68 @@ setup() {
   [[ "$output" == *"push [--base <b>]"* ]]
   [[ "$output" == *"status [--base <b>]"* ]]
 }
+
+@test "cli: every command refuses nested subtrees before doing anything" {
+  load 'scenarios/nested-subtrees/setup'
+  scenario_nested_subtrees "$monorepo" "$upstream"
+  cd "$monorepo"
+  local before cmd
+  before="$(git rev-parse HEAD)"
+  for cmd in status diff fetch merge pull push prune; do
+    run "$entrypoint" "$cmd"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"nested subtrees are not supported: 'vendor/pkg' and 'vendor/pkg/extra' overlap"* ]]
+  done
+  [ "$(git rev-parse HEAD)" = "$before" ]
+  [ -z "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
+}
+
+@test "cli: a remote overlapping a subtree is refused even without a folder of its own" {
+  load 'scenarios/nested-subtrees/setup'
+  scenario_nested_subtrees "$monorepo" "$upstream"
+  cd "$monorepo"
+  git rm -q -r vendor/pkg/extra
+  git commit -q -m "drop the inner folder, keep its remote"
+
+  run "$entrypoint" status
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"nested subtrees are not supported: 'vendor/pkg' and 'vendor/pkg/extra' overlap"* ]]
+}
+
+@test "cli: removing the inner remote with the suggested commands leaves the outer subtree usable" {
+  load 'scenarios/nested-subtrees/setup'
+  scenario_nested_subtrees "$monorepo" "$upstream"
+  cd "$monorepo"
+  git fetch -q vendor/pkg/extra
+  [ -n "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
+
+  git remote remove vendor/pkg/extra
+  git for-each-ref --format='delete %(refname)' refs/remotes/vendor/pkg/extra/ | git update-ref --no-deref --stdin
+
+  [ -z "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
+  run "$entrypoint" status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/pkg -> $upstream"* ]]
+}
+
+@test "cli: the printed nested-subtree fix is safe to run for a name with shell metacharacters" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/pkg"
+  cd "$monorepo"
+  local inner='vendor/pkg/x;touch${IFS}pwned'
+  git config "remote.$inner.url" "$upstream"
+
+  run "$entrypoint" status
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git remote remove 'vendor/pkg/x;touch\${IFS}pwned'"* ]]
+
+  # Run the second suggested fix exactly as printed.
+  printf '%s\n' "$output" | grep -A1 -F "git remote remove '" | sed 's/^  //' | bash
+  [ ! -e pwned ]
+  run git config --get "remote.$inner.url"
+  [ "$status" -ne 0 ]
+  run "$entrypoint" status
+  [ "$status" -eq 0 ]
+}

@@ -21,7 +21,7 @@ sequences instead of attempting anything:
 ```sh
 # accept the remote's version, discarding local changes under vendor/a:
 git rm -r vendor/a
-git commit -m "remove vendor/a before re-adopting from remote 'vendor/a'"
+git commit -m 'remove vendor/a before re-adopting it from its remote'
 git subtree add --prefix=vendor/a vendor/a main --squash
 
 # OR: accept the local (monorepo) version, overwriting vendor/a's history:
