@@ -138,13 +138,17 @@ die_nested() {
     outer="$2"
     inner="$1"
   fi
+  local q_outer q_inner q_refs
+  q_outer="$(shell_quote "$outer")"
+  q_inner="$(shell_quote "$inner")"
+  q_refs="$(shell_quote "refs/remotes/$inner/")"
   log_err "nested subtrees are not supported: $(overlap_pair "$outer" "$inner") overlap -- fix it with one of:"
   cat >&2 <<EOF
 
-  git remote remove $outer
+  git remote remove $q_outer
 
-  git remote remove $inner
-  git for-each-ref --format='delete %(refname)' refs/remotes/$inner/ | git update-ref --no-deref --stdin
+  git remote remove $q_inner
+  git for-each-ref --format='delete %(refname)' $q_refs | git update-ref --no-deref --stdin
 
 EOF
   exit 1
@@ -179,6 +183,18 @@ target_ref_for() {
 # plain git builtins).
 usable_with_git_subtree() {
   [[ "$1" != -* ]]
+}
+
+# Prints $1 as one shell word for a ready-to-run command we print: as-is if
+# it only has characters no shell treats specially, else single-quoted. Git
+# accepts shell metacharacters in remote and branch names (e.g. "x;id"), so
+# every name in a printed command goes through this.
+shell_quote() {
+  if [[ "$1" =~ ^[A-Za-z0-9_./:@%+=,-]+$ ]]; then
+    printf '%s' "$1"
+  else
+    printf "'%s'" "${1//\'/\'\\\'\'}"
+  fi
 }
 
 regex_escape() {
@@ -404,18 +420,24 @@ classify_subtree() {
 print_unrelated_history_guidance() {
   local path="$1" branch="$2"
   local tmp_branch="tmp-split-$(basename "$path")"
+  local q_path q_branch q_tmp q_msg q_refspec
+  q_path="$(shell_quote "$path")"
+  q_branch="$(shell_quote "$branch")"
+  q_tmp="$(shell_quote "$tmp_branch")"
+  q_msg="$(shell_quote "remove $path before re-adopting it from its remote")"
+  q_refspec="$(shell_quote "$tmp_branch:$branch")"
   log_warn "$path: remote and local share no history -- pick one side manually:"
   cat >&2 <<EOF
 
   # accept the remote's version, discarding local changes under $path:
-  git rm -r $path
-  git commit -m "remove $path before re-adopting from remote '$path'"
-  git subtree add --prefix=$path $path $branch --squash
+  git rm -r $q_path
+  git commit -m $q_msg
+  git subtree add --prefix=$q_path $q_path $q_branch --squash
 
   # OR: accept the local (monorepo) version, overwriting $path's history:
-  git subtree split --prefix=$path -b $tmp_branch
-  git push --force $path $tmp_branch:$branch
-  git branch -D $tmp_branch
+  git subtree split --prefix=$q_path -b $q_tmp
+  git push --force $q_path $q_refspec
+  git branch -D $q_tmp
 
 EOF
 }

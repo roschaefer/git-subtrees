@@ -134,3 +134,25 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"vendor/pkg -> $upstream"* ]]
 }
+
+@test "cli: the printed nested-subtree fix is safe to run for a name with shell metacharacters" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/pkg"
+  cd "$monorepo"
+  local inner='vendor/pkg/x;touch${IFS}pwned'
+  git config "remote.$inner.url" "$upstream"
+
+  run "$entrypoint" status
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git remote remove 'vendor/pkg/x;touch\${IFS}pwned'"* ]]
+
+  # Run the second suggested fix exactly as printed.
+  printf '%s\n' "$output" | grep -A1 -F "git remote remove '" | sed 's/^  //' | bash
+  [ ! -e pwned ]
+  run git config --get "remote.$inner.url"
+  [ "$status" -ne 0 ]
+  run "$entrypoint" status
+  [ "$status" -eq 0 ]
+}
