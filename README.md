@@ -87,6 +87,7 @@ explains how the states are worked out and lists known limitations.
 ## Installation
 
     git clone https://github.com/roschaefer/git-subtrees.git
+    mkdir -p ~/.local/bin
     ln -s "$(pwd)/git-subtrees/git-subtrees" ~/.local/bin/git-subtrees
 
 Git runs any `git-<name>` executable on your `PATH` as `git <name>`, so make

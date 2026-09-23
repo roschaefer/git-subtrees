@@ -239,6 +239,7 @@ remote_has_branch() {
   run push_one "vendor/b" "main"
   [ "$status" -eq 1 ]
   [[ "$output" == *"vendor/b: push failed"* ]]
+  [[ "$output" == *"(non-fast-forward)"* ]]
 
   local verify="$BATS_TEST_TMPDIR/verify"
   git clone -q "$upstream" "$verify" 2>/dev/null
