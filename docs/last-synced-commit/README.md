@@ -58,6 +58,8 @@ section (`push`, `pull`, `diverged`, ...).
    branch's sync points along. Nothing compares `feature-1` to `feature-2`.
 3. **Only `add` and `pull` move it.** Each writes a new squash commit.
    `push` writes nothing into your history, so pushing never advances it.
+   Instead, the tool recognises its own push on the remote -- see
+   *After a push* below.
 4. **It must come from a squash.** A plain `git subtree add` (no
    `--squash`) makes the sync commit itself the merge, so its tree is the
    whole monorepo rather than U's content.
@@ -95,6 +97,28 @@ missing branch.
 Once the remote has the branch (for instance after `push` created it), this
 case no longer applies: the normal same-name classification takes over.
 
+## After a push
+
+After a push, the remote branch differs from U, because *you* changed it,
+while the sync point stays put (property 3). Compared naively, any further
+local change would then look like change on both sides: `diverged`.
+
+So the tool looks for its own push in the remote branch's history since
+U. `git subtree split` gives each commit it creates the author, dates and
+message of the local commit it came from, and that commit's `vendor/a`
+content as its tree. The newest remote commit that matches a local commit
+since the sync point in all of these is where both sides last agreed, and
+the tool compares with that instead of U:
+
+- The remote's tip is your push, and you changed `vendor/a` since: `push`.
+  The push fast-forwards the remote.
+- Someone else committed on top of your push, and you didn't change
+  anything since: `pull`.
+- Both: `diverged`.
+
+Someone else's commit won't match, even with the same content, so a real
+change on the remote isn't taken for your own push.
+
 ## Walkthrough
 
 Each row is one step of `walkthrough.sh`. "State" is what the tool
@@ -106,7 +130,7 @@ reports for the current branch.
 | 2 | Cut `feature-1`; remote has no such branch | S1 (inherited) | `missing-at-head`, **unchanged** vs base `main` | Nothing under `vendor/a` differs from the merge base with `main`, so `push` skips it. |
 | 3 | Commit a change under `vendor/a` | S1 | `missing-at-head`, **changed** vs base `main` | `vendor/a` differs from the merge base, so `push` would create `feature-1`. |
 | 4 | `subtree push` creates remote `feature-1` | S1 (unchanged) | `up-to-date` | The remote branch exists now, so the same-name comparison applies, and it equals local. Note the sync point did not move. |
-| 5 | Another branch changes `vendor/a` too; merge it into `feature-1` | S1 | `diverged` | See limitation 1. |
+| 5 | Another branch changes `vendor/a` too; merge it into `feature-1` | S1 | `push` | The remote's `feature-1` only holds your own push from step 4, so only local changed. See *After a push*. |
 | 6 | Remote `feature-1` is deleted | S1 | `missing-at-head`, **changed** vs base `main` | Back to the base-branch case: `feature-1` still differs from `main`. |
 | 7 | Upstream `main` moves; `git subtrees pull` on `main` | **S2** | `up-to-date` | `pull` wrote a new squash commit, so the sync point advanced. |
 | 8 | Merge `main` into `feature-1` | S2 (inherited) | `missing-at-head`, **changed** vs base `main` | The merge brought S2 in. `feature-1` still has changes relative to the merge base with `main`. |
@@ -116,10 +140,11 @@ the base branch is found there.
 
 ## Known limitations
 
-1. **After a push, further local changes look `diverged`.** This is a
-   consequence of property 3. The remote branch now differs from U (because
-   *you* pushed to it), and local differs from S, so the tool sees two-sided
-   change. It can't tell the remote's change was your own push. Step 5.
+1. **Only pushes made by plain `git subtree split` are recognised.** See
+   *After a push*: if the pushed commits were changed on the way, e.g. with
+   `git subtree push --annotate`, or rebased on the remote, the tool can't
+   tell them from someone else's, and further local changes look
+   `diverged`.
 2. **The base branch has to be findable.** With no `origin/HEAD`, no
    `init.defaultBranch` and no `--base`, `push` refuses on a branch the
    remote lacks. A monorepo whose own remote isn't called `origin` gets no
@@ -133,5 +158,4 @@ the base branch is found there.
    cut from `feature-1` (not from the base branch) counts everything
    `feature-1` changed as its own, unless you pass `--base feature-1`.
 
-Treating a successful push as a sync point would fix limitation 1. It is
-not implemented; this page documents what the tool does now.
+This page documents what the tool does now.

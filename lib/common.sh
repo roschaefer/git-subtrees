@@ -308,6 +308,34 @@ changes_vs_base() {
   fi
 }
 
+# Prints the tree of the newest commit on <target-ref> since <split-sha>
+# that is our own push: the commit `git subtree split` made from a local
+# commit since <sync-commit>. Fails if there is none. A push doesn't move
+# the sync point, so this is where both sides last agreed if we pushed
+# since. split copies each commit's author, dates and message, and gives it
+# <path>'s tree at that commit; someone else's commit, even with the same
+# content, won't match all of these.
+own_pushed_tree() {
+  local path="$1" sync_commit="$2" split_sha="$3" target_ref="$4"
+  local -A local_commits=()
+  local commit tree sig
+  while IFS=' ' read -r commit sig; do
+    local_commits["$sig"]+="$commit "
+  done < <(git log --full-history --ancestry-path --format='%H %at %ct %ae %s' \
+    "$sync_commit..HEAD" -- "$path")
+  ((${#local_commits[@]})) || return 1
+
+  while IFS=' ' read -r tree sig; do
+    for commit in ${local_commits["$sig"]:-}; do
+      if [[ "$(git rev-parse --quiet --verify "$commit:$path")" == "$tree" ]]; then
+        printf '%s\n' "$tree"
+        return 0
+      fi
+    done
+  done < <(git log --format='%T %at %ct %ae %s' "$split_sha..$target_ref")
+  return 1
+}
+
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
 # Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
 # globals rather than returning a value, since callers (status, push, pull)
@@ -386,6 +414,15 @@ classify_subtree() {
       local split_tree
       split_tree="$(git rev-parse "${split_sha}^{tree}")"
       [[ "$split_tree" == "$remote_tree" ]] && remote_changed=0
+      # A push doesn't move the sync point, so after one the remote looks
+      # changed. If it holds our own push, compare both sides with that
+      # instead: it's where they last agreed.
+      local pushed_tree
+      if ((remote_changed)) && pushed_tree="$(own_pushed_tree "$path" "$sync_commit" "$split_sha" "$target_ref")"; then
+        [[ "$remote_tree" == "$pushed_tree" ]] && remote_changed=0
+        local_changed=1
+        [[ "$local_tree" == "$pushed_tree" ]] && local_changed=0
+      fi
     elif ! git merge-base "$split_sha" "$target_ref" >/dev/null 2>&1; then
       SUBTREE_STATE="unrelated-history"
       return
