@@ -7,6 +7,7 @@ setup() {
   load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
   load 'scenarios/shared-remote-url/setup'
+  load 'scenarios/diverged-then-pulled/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -246,4 +247,17 @@ remote_has_branch() {
   run grep -qx "a change" "$verify/file.txt"
   [ "$status" -eq 0 ]
   [ ! -e "$verify/new.txt" ]
+}
+
+@test "push: sends local changes that predate a pull of a divergence" {
+  scenario_diverged_then_pulled "$monorepo" "$upstream"
+  cd "$monorepo"
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a: pushed"* ]]
+
+  local verify="$BATS_TEST_TMPDIR/verify"
+  git clone -q "$upstream" "$verify" 2>/dev/null
+  [ -f "$verify/local.txt" ]
+  [ -f "$verify/upstream.txt" ]
 }

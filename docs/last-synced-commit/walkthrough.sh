@@ -69,15 +69,13 @@ short_subject() { git log -1 --format='%h %s' "$1"; }
 # whether the subtree changed on this branch compared with the monorepo's
 # base branch (main, via init.defaultBranch below).
 show_state() {
-  local path="vendor/a" branch sync split merge
+  local path="vendor/a" branch sync split
   branch="$(current_branch)"
   sync="$(find_sync_commit "$path")"
   split="$(sync_split_sha "$sync")"
-  merge="$(find_merge_commit_for_sync "$sync")"
   printf '  branch:                 %s\n' "$branch"
   printf '  last synced (S):        %s\n' "$(short_subject "$sync")"
   printf '  upstream commit taken:  %s\n' "${split:0:7}"
-  printf '  local-change baseline:  %s\n' "$(short_subject "${merge:-$sync}")"
   classify_subtree "$path" "$branch"
   if [[ "$SUBTREE_STATE" == "missing-at-head" ]]; then
     changes_vs_base "$path"

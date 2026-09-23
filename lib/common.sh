@@ -220,15 +220,6 @@ sync_split_sha() {
   git show -s --format=%B "$1" | sed -n 's/^git-subtree-split: *//p' | tail -1
 }
 
-# The commit reachable from HEAD whose parent list includes the given sync
-# commit -- i.e. the merge/add commit that brought that squash in, and the
-# point after which "local changes under path" are measured.
-find_merge_commit_for_sync() {
-  local sync_commit="$1"
-  git rev-list --ancestry-path "$sync_commit..HEAD" --parents | awk -v s="$sync_commit" \
-    'found {next} {for (i=2;i<=NF;i++) if ($i==s) {print $1; found=1; next}}'
-}
-
 # Prints the full ref of the monorepo's base branch -- the branch feature
 # branches are cut from -- or fails if there is none. Git doesn't record
 # which branch a branch was cut from, so this is resolved, in order, from:
@@ -376,13 +367,16 @@ classify_subtree() {
     return
   fi
 
-  local split_sha merge_commit
+  local split_sha
   split_sha="$(sync_split_sha "$sync_commit")"
   SUBTREE_SPLIT_SHA="$split_sha"
-  merge_commit="$(find_merge_commit_for_sync "$sync_commit")"
 
+  # Local changes are measured against the squash commit's own tree -- the
+  # remote content it recorded -- not against the merge commit that brought
+  # it in: after pulling a divergence that merge already contains the local
+  # changes, which would hide them from push.
   local local_changed=1
-  if [[ -n "$merge_commit" ]] && git diff --quiet "$merge_commit" HEAD -- "$path"; then
+  if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]]; then
     local_changed=0
   fi
 

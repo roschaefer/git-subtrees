@@ -9,6 +9,7 @@ setup() {
   load 'scenarios/not-connected/setup'
   load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
+  load 'scenarios/diverged-then-pulled/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -49,6 +50,14 @@ setup() {
   run cmd_status
   [[ "$output" == *"unrelated history"* ]]
   [[ "$output" != *"(diverged)"* ]]
+}
+
+@test "status: local changes still pending after pulling a divergence report push" {
+  scenario_diverged_then_pulled "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status
+  [[ "$output" == *"(push)"* ]]
+  [[ "$output" == *"local.txt"* ]]
 }
 
 @test "status: reports not-connected" {
