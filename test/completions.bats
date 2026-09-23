@@ -77,3 +77,10 @@ complete_words() {
   [ ! -e pwned ]
   [ "$output" = 'vendor/\$\(touch\$\{IFS\}pwned\)' ]
 }
+
+@test "completion: init offers a directory with a command substitution quoted" {
+  mkdir 'z$(touch${IFS}pwned)'
+  run complete_words git-subtrees init z
+  [ ! -e pwned ]
+  [ "$output" = 'z\$\(touch\$\{IFS\}pwned\)' ]
+}

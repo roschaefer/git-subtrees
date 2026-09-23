@@ -19,10 +19,11 @@ __git_subtrees_paths() {
 }
 
 # Sets COMPREPLY to the lines on stdin that start with $1, shell-quoted.
-# Branch names and subtree paths never go through `compgen -W`: it expands
-# its word list, so a branch named like origin/$(cmd) -- a valid name that
-# any remote can publish -- would run cmd on <TAB>. Quoting keeps such a
-# name from running when the completed command line is executed.
+# Branch names, subtree paths and directory names can come from a remote or
+# a cloned repo, so they never go through `compgen -W`: it expands its word
+# list, and a branch named like origin/$(cmd) -- a valid name that any
+# remote can publish -- would run cmd on <TAB>. Quoting keeps such a name
+# from running when the completed command line is executed.
 __git_subtrees_reply() {
   local prefix="$1" word quoted
   COMPREPLY=()
@@ -92,7 +93,8 @@ _git_subtrees() {
       ;;
     init)
       if ((COMP_CWORD == start + 1)); then
-        mapfile -t COMPREPLY < <(compgen -d -- "$cur")
+        # compgen -d only lists matching directories; quote them like the rest.
+        __git_subtrees_reply "" < <(compgen -d -- "$cur")
       fi
       ;;
     *) ;;
