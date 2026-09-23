@@ -113,6 +113,9 @@ cmd_init() {
   if ((rc == 2)); then
     local base_branch
     if ! base_branch="$(base_branch_name "$base")"; then
+      # An explicit --base that doesn't resolve is a mistake (e.g. a typo),
+      # not a reason to skip adding quietly -- the same as for push.
+      [[ -n "$base" ]] && die "$path: base branch '$base' not found, or it shares no history with '$branch'"
       log_ok "$path: remote has no '$branch' branch yet -- nothing to add (pass --base <branch> to add another branch)"
       return 0
     fi

@@ -293,3 +293,15 @@ setup() {
   [[ "$output" == *"-base: git-subtree cannot use a branch name starting with '-'"* ]]
   [[ "$output" != *"nothing to add"* ]]
 }
+
+@test "init: an explicit --base that doesn't resolve is an error" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+
+  run cmd_init --base mian "vendor/a" "$upstream"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"vendor/a: base branch 'mian' not found, or it shares no history with 'feature'"* ]]
+  [[ "$output" != *"nothing to add"* ]]
+  [ ! -e vendor/a ]
+}
