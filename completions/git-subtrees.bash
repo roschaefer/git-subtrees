@@ -48,7 +48,11 @@ _git_subtrees() {
       mapfile -t COMPREPLY < <(compgen -W "$(__git_subtrees_paths) -n --dry-run -h --help" -- "$cur")
       ;;
     init)
-      if ((COMP_CWORD == start + 1)); then
+      if [[ "${COMP_WORDS[COMP_CWORD - 1]}" == --base ]]; then
+        mapfile -t COMPREPLY < <(compgen -W "$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -- "$cur")
+      elif [[ "$cur" == -* ]]; then
+        mapfile -t COMPREPLY < <(compgen -W "--base -h --help" -- "$cur")
+      elif ((COMP_CWORD == start + 1)); then
         mapfile -t COMPREPLY < <(compgen -d -- "$cur")
       fi
       ;;

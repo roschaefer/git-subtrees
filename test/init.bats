@@ -2,6 +2,7 @@ setup() {
   load 'helpers/fixtures'
   load_lib
   load 'scenarios/init-unrelated-content/setup'
+  load 'scenarios/init-on-feature-branch/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -121,7 +122,8 @@ setup() {
   [[ "$output" != *"nothing to add"* ]]
 }
 
-@test "init: no-op when remote has no matching branch yet" {
+@test "init: no-op when remote lacks the current branch and no base branch resolves" {
+  hermetic_git_config
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
@@ -130,12 +132,14 @@ setup() {
 
   run cmd_init "vendor/a" "$upstream"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"nothing to add"* ]]
+  [[ "$output" == *"nothing to add (pass --base <branch>"* ]]
   [[ "$output" != *"fetch failed"* ]]
   [[ "$output" != *"couldn't find remote ref"* ]]
+  [ ! -e vendor/a ]
 }
 
 @test "init: exact branch probe does not match branch-name suffixes" {
+  hermetic_git_config
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "team feature" "team/feature"
   init_monorepo "$monorepo"
@@ -148,4 +152,74 @@ setup() {
   [[ "$output" == *"nothing to add"* ]]
   [[ "$output" != *"fetch failed"* ]]
   [[ "$output" != *"couldn't find remote ref"* ]]
+}
+
+@test "init: on a branch the remote lacks, adds the remote's base branch" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+
+  run cmd_init "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"using its 'main' branch; your first push creates 'feature'"* ]]
+  run grep -qx "seed" vendor/a/file.txt
+  [ "$status" -eq 0 ]
+  run git -C "$upstream" rev-parse --verify --quiet refs/heads/feature
+  [ "$status" -ne 0 ]
+
+  classify_subtree "vendor/a" "feature"
+  [ "$SUBTREE_STATE" = "missing-at-head" ]
+  changes_vs_base "vendor/a"
+  [ "$SUBTREE_CHANGES_VS_BASE" = "yes" ]
+}
+
+@test "init: after adding from the base branch, the first push creates the branch on top of it" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+  cmd_init "vendor/a" "$upstream"
+  echo "feature change" >>vendor/a/file.txt
+  git commit -q -am "feature change"
+
+  run push_one "vendor/a" "feature"
+  [ "$status" -eq 0 ]
+  git -C "$upstream" merge-base --is-ancestor main feature
+  run git -C "$upstream" show feature:file.txt
+  [[ "$output" == *"feature change"* ]]
+}
+
+@test "init: --base names the base branch when nothing else resolves" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset init.defaultBranch
+
+  run cmd_init --base main "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"using its 'main' branch"* ]]
+  [ -f vendor/a/file.txt ]
+}
+
+@test "init: only registers the remote when it lacks the base branch too" {
+  hermetic_git_config
+  make_bare_repo "$upstream"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git config init.defaultBranch main
+  git checkout -q -b feature
+
+  run cmd_init "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"remote has no 'feature' branch yet -- nothing to add"* ]]
+  [ ! -e vendor/a ]
+  run git remote get-url vendor/a
+  [ "$output" = "$upstream" ]
+}
+
+@test "init: rejects more than one path/url pair" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  run cmd_init "vendor/a" "$upstream" "extra"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"usage: git subtrees init"* ]]
 }
