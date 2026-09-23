@@ -154,6 +154,25 @@ setup() {
   [ "$output" = cat ]
 }
 
+@test "diff: pager startup failure is returned even when SIGPIPE is ignored" {
+  # With SIGPIPE ignored, the producer doesn't die on the closed pipe but
+  # fails its write (exit 1). The delay makes sure the pager is gone first.
+  produce_diff() {
+    sleep 0.3
+    printf 'patch\n'
+  }
+  missing_pager_fails() {
+    trap '' PIPE
+    local rc=0
+    pipe_to_pager produce_diff 'missing-pager-command' || rc=$?
+    ((rc == 127))
+  }
+
+  run missing_pager_fails
+
+  [ "$status" -eq 0 ]
+}
+
 @test "diff: pager startup failure is returned" {
   produce_diff() { printf 'patch\n'; }
   missing_pager_fails() {

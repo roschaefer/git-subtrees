@@ -147,7 +147,10 @@ pipe_to_pager() {
   }; then
     return 0
   fi
-  ((producer_status == 0 || producer_status == 141)) && return "$pager_status"
+  # A failed pager wins: once it's gone, the producer's write fails too, with
+  # 141 if SIGPIPE kills it or 1 if SIGPIPE is ignored and it sees EPIPE.
+  # Either way that's a consequence, not the cause.
+  ((pager_status != 0)) && return "$pager_status"
   return "$producer_status"
 }
 
