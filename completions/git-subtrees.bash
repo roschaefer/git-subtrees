@@ -92,7 +92,11 @@ _git_subtrees() {
       )
       ;;
     init)
-      if ((COMP_CWORD == start + 1)); then
+      if __git_subtrees_completing_base; then
+        __git_subtrees_reply "$base_prefix" < <(__git_subtrees_branches)
+      elif [[ "$cur" == -* ]]; then
+        mapfile -t COMPREPLY < <(compgen -W "--base -h --help" -- "$cur")
+      elif ((COMP_CWORD == start + 1)); then
         # compgen -d only lists matching directories; quote them like the rest.
         __git_subtrees_reply "" < <(compgen -d -- "$cur")
       fi

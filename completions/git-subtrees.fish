@@ -41,4 +41,5 @@ complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -s n -l dry-run 
 complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -s h -l help -d 'show usage'
 
 complete -c git-subtrees -n "__fish_seen_subcommand_from init" -s h -l help -d 'show usage'
+complete -c git-subtrees -n "__fish_seen_subcommand_from init" -l base -x -a "(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -d 'monorepo base branch to add from'
 complete -c git-subtrees -n "__fish_seen_subcommand_from init; and test (count (commandline -opc)) -le 2" -a "(__fish_complete_directories)"
