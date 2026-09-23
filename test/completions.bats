@@ -84,3 +84,42 @@ complete_words() {
   [ ! -e pwned ]
   [ "$output" = 'z\$\(touch\$\{IFS\}pwned\)' ]
 }
+
+@test "completion: init completes a directory as its first argument" {
+  run complete_words git-subtrees init vend
+  [[ "$output" == *"vendor"* ]]
+}
+
+@test "completion: init completes the path after --base and its value" {
+  run complete_words git-subtrees init --base main vend
+  [[ "$output" == *"vendor"* ]]
+}
+
+@test "completion: init completes the path after --base=<value> split by bash" {
+  run complete_words git-subtrees init --base = main vend
+  [[ "$output" == *"vendor"* ]]
+}
+
+@test "completion: init offers no directory for the url" {
+  run complete_words git-subtrees init --base main vendor/a vend
+  [ -z "$output" ]
+}
+
+@test "completion: init completes branches after --base" {
+  run complete_words git-subtrees init --base ma
+  [[ "$output" == *"main"* ]]
+}
+
+@test "completion: init completes branches for '--base=<value>' and right after '--base='" {
+  run complete_words git-subtrees init --base = ma
+  [ "$output" = "main" ]
+  run complete_words git-subtrees init --base =
+  [ "$output" = "main" ]
+}
+
+@test "completion: init never runs a branch name with a command substitution" {
+  git update-ref 'refs/heads/x$(touch${IFS}pwned)' HEAD
+  run complete_words git-subtrees init --base x
+  [ ! -e pwned ]
+  [ "$output" = 'x\$\(touch\$\{IFS\}pwned\)' ]
+}

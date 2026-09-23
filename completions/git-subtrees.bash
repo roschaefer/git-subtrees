@@ -53,6 +53,24 @@ __git_subtrees_completing_base() {
   [[ "$prev" == = && "${COMP_WORDS[COMP_CWORD - 2]:-}" == --base ]]
 }
 
+# Counts the positional arguments before the word being completed, skipping
+# options and --base's value (bash may split "--base=main" into "--base",
+# "=" and "main"). $1 is the index of the subcommand in COMP_WORDS.
+__git_subtrees_positionals() {
+  local i count=0
+  for ((i = $1 + 1; i < COMP_CWORD; i++)); do
+    case "${COMP_WORDS[i]}" in
+      --base)
+        [[ "${COMP_WORDS[i + 1]:-}" == = ]] && ((i++))
+        ((i++))
+        ;;
+      -*) ;;
+      *) ((count++)) ;;
+    esac
+  done
+  printf '%s\n' "$count"
+}
+
 _git_subtrees() {
   local cur start cmd base_prefix
   cur="${COMP_WORDS[COMP_CWORD]}"
@@ -96,7 +114,7 @@ _git_subtrees() {
         __git_subtrees_reply "$base_prefix" < <(__git_subtrees_branches)
       elif [[ "$cur" == -* ]]; then
         mapfile -t COMPREPLY < <(compgen -W "--base -h --help" -- "$cur")
-      elif ((COMP_CWORD == start + 1)); then
+      elif (($(__git_subtrees_positionals "$start") == 0)); then
         # compgen -d only lists matching directories; quote them like the rest.
         __git_subtrees_reply "" < <(compgen -d -- "$cur")
       fi

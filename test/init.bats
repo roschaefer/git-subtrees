@@ -223,3 +223,32 @@ setup() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"usage: git subtrees init"* ]]
 }
+
+@test "init: --base with another remote's tracking branch fetches the plain branch name" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset init.defaultBranch
+  git remote add team/upstream "$BATS_TEST_TMPDIR/unused.git"
+  git update-ref refs/remotes/team/upstream/main main
+
+  run cmd_init --base team/upstream/main "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"using its 'main' branch"* ]]
+  [ -f vendor/a/file.txt ]
+}
+
+@test "init: --base origin/HEAD follows the symbolic ref to its branch" {
+  hermetic_git_config
+  scenario_init_on_feature_branch "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset init.defaultBranch
+  git remote add origin "$BATS_TEST_TMPDIR/unused.git"
+  git update-ref refs/remotes/origin/main main
+  git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+
+  run cmd_init --base origin/HEAD "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"using its 'main' branch"* ]]
+  [ -f vendor/a/file.txt ]
+}
