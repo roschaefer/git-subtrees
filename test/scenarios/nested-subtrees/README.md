@@ -8,7 +8,7 @@ One subtree folder inside another: remotes `vendor/pkg` and
 - **Remote**: one commit (`seed`). Both remotes point at it; only the
   names matter here.
 
-Git 2.55+ refuses `git remote add vendor/pkg/extra` once `vendor/pkg`
+Git 2.51+ refuses `git remote add vendor/pkg/extra` once `vendor/pkg`
 exists, but older versions accept it, so the setup writes the remote to the
 config directly.
 

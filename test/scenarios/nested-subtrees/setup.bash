@@ -8,7 +8,7 @@ scenario_nested_subtrees() {
   (
     cd "$monorepo"
     # Written to the config directly: `git remote add` refuses this name
-    # since Git 2.55, but older versions accept it.
+    # since Git 2.51, but older versions accept it.
     git config remote.vendor/pkg/extra.url "$upstream"
     git config remote.vendor/pkg/extra.fetch "+refs/heads/*:refs/remotes/vendor/pkg/extra/*"
     mkdir -p vendor/pkg/extra

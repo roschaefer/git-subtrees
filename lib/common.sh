@@ -99,7 +99,7 @@ discover_subtrees() {
 }
 
 # Prints the first remote in ALL_REMOTES nested inside, or containing, $1.
-# Git 2.55+ refuses such remote names, older versions accept them.
+# Git 2.51+ refuses such remote names, older versions accept them.
 overlapping_remote() {
   local name="$1" remote
   for remote in "${ALL_REMOTES[@]}"; do
