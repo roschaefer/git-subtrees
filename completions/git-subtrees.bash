@@ -18,73 +18,18 @@ __git_subtrees_paths() {
   done < <(git remote 2>/dev/null)
 }
 
-# Removes shell quoting from the word being completed, as typed so far:
-# backslash escapes, and single- and double-quoted parts. bash passes that
-# word unprocessed. Sets dequoted to the result and quote_context to the
-# quote still open at its end: "'", '"' or empty.
-__git_subtrees_dequote() {
-  local word="$1" i char
-  dequoted=""
-  quote_context=""
-  for ((i = 0; i < ${#word}; i++)); do
-    char="${word:i:1}"
-    case "$quote_context" in
-      "'")
-        if [[ "$char" == "'" ]]; then quote_context=""; else dequoted+="$char"; fi
-        ;;
-      '"')
-        if [[ "$char" == '"' ]]; then
-          quote_context=""
-        elif [[ "$char" == "\\" && "${word:i+1:1}" == [\$\`\"\\] ]]; then
-          dequoted+="${word:i+1:1}"
-          ((i++))
-        else
-          dequoted+="$char"
-        fi
-        ;;
-      *)
-        case "$char" in
-          "'" | '"') quote_context="$char" ;;
-          "\\")
-            dequoted+="${word:i+1:1}"
-            ((i++))
-            ;;
-          *) dequoted+="$char" ;;
-        esac
-        ;;
-    esac
-  done
-}
-
-# Sets COMPREPLY to the lines on stdin that start with the word being
-# completed ($1, as typed), quoted to fit the quote the user has open.
+# Sets COMPREPLY to the lines on stdin that start with $1, shell-quoted.
 # Branch names, subtree paths and directory names can come from a remote or
 # a cloned repo, so they never go through `compgen -W`: it expands its word
 # list, and a branch named like origin/$(cmd) -- a valid name that any
 # remote can publish -- would run cmd on <TAB>. Quoting keeps such a name
 # from running when the completed command line is executed.
-#
-# Inside an open quote, readline replaces only the text after the quote and
-# closes it itself, so a candidate is inserted as it has to read there.
 __git_subtrees_reply() {
-  local dequoted quote_context word quoted
-  __git_subtrees_dequote "$1"
+  local prefix="$1" word quoted
   COMPREPLY=()
   while IFS= read -r word; do
-    [[ -n "$word" && "$word" == "$dequoted"* ]] || continue
-    case "$quote_context" in
-      "'")
-        # A single quote can't appear inside single quotes.
-        [[ "$word" == *"'"* ]] && continue
-        quoted="$word"
-        ;;
-      '"')
-        quoted="$(printf '%s' "$word" | sed 's/[$`"\\]/\\&/g')"
-        ;;
-      *)
-        printf -v quoted '%q' "$word"
-        ;;
-    esac
+    [[ -n "$word" && "$word" == "$prefix"* ]] || continue
+    printf -v quoted '%q' "$word"
     COMPREPLY+=("$quoted")
   done
 }
@@ -149,9 +94,7 @@ _git_subtrees() {
     init)
       if ((COMP_CWORD == start + 1)); then
         # compgen -d only lists matching directories; quote them like the rest.
-        local dequoted quote_context
-        __git_subtrees_dequote "$cur"
-        __git_subtrees_reply "$cur" < <(compgen -d -- "$dequoted")
+        __git_subtrees_reply "" < <(compgen -d -- "$cur")
       fi
       ;;
     *) ;;
