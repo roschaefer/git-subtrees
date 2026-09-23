@@ -84,3 +84,45 @@ complete_words() {
   [ ! -e pwned ]
   [ "$output" = 'z\$\(touch\$\{IFS\}pwned\)' ]
 }
+
+# bash passes the word being completed with its quoting as typed. Inside an
+# open quote, readline replaces only the text after the quote and closes it
+# itself, so candidates must be quoted for that context.
+@test "completion: candidates are quoted to fit the quote the user has open" {
+  mkdir 'foo bar'
+
+  run complete_words git-subtrees init foo
+  [ "$output" = 'foo\ bar' ]
+  run complete_words git-subtrees init "'foo"
+  [ "$output" = 'foo bar' ]
+  run complete_words git-subtrees init '"foo'
+  [ "$output" = 'foo bar' ]
+}
+
+@test "completion: an escaped or quoted prefix matches the name it spells" {
+  git update-ref 'refs/heads/release$one' HEAD
+
+  run complete_words git-subtrees push --base 'release\$o'
+  [ "$output" = 'release\$one' ]
+  run complete_words git-subtrees push --base "'release"
+  [ "$output" = 'release$one' ]
+  run complete_words git-subtrees push --base '"release'
+  [ "$output" = 'release\$one' ]
+}
+
+@test "completion: a command substitution stays literal inside double quotes" {
+  git update-ref 'refs/heads/x$(touch${IFS}pwned)' HEAD
+
+  run complete_words git-subtrees push --base '"x'
+  [ ! -e pwned ]
+  [ "$output" = 'x\$(touch\${IFS}pwned)' ]
+}
+
+@test "completion: a name with a single quote isn't offered inside single quotes" {
+  git update-ref "refs/heads/it's" HEAD
+
+  run complete_words git-subtrees push --base "'it"
+  [ -z "$output" ]
+  run complete_words git-subtrees push --base it
+  [ "$output" = "it\\'s" ]
+}
