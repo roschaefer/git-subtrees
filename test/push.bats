@@ -276,3 +276,60 @@ remote_has_branch() {
   run git -C "$upstream" show main:file.txt
   [[ "$output" == *"later change"* ]]
 }
+
+@test "push: leaves a --rejoin checkpoint that isn't taken for the sync point" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  git log -1 --format=%B HEAD | grep -q '^git-subtree-mainline:'
+  git fetch -q vendor/a
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "up-to-date" ]
+
+  echo "after checkpoint" >>vendor/a/file.txt
+  git commit -q -am "after checkpoint"
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "push" ]
+}
+
+@test "push: refuses with uncommitted changes, before pushing anything" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+  echo "dirty" >>vendor/a/file.txt
+
+  run push_one "vendor/a" "main"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"uncommitted changes"* ]]
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+}
+
+@test "push: after merging another pushed branch, still push (walkthrough step 5 via push_one)" {
+  hermetic_git_config
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  cd "$monorepo"
+  git checkout -q -b feature-1
+  echo one >vendor/a/one.txt
+  git add vendor/a && git commit -q -m "feature-1: change vendor/a"
+  push_one "vendor/a" "feature-1" "main" >/dev/null 2>&1
+  git checkout -q -b feature-2 main
+  echo two >vendor/a/two.txt
+  git add vendor/a && git commit -q -m "feature-2: change vendor/a"
+  push_one "vendor/a" "feature-2" "main" >/dev/null 2>&1
+  git checkout -q feature-1
+  git merge -q --no-edit feature-2
+  git fetch -q vendor/a
+
+  classify_subtree "vendor/a" "feature-1"
+  [ "$SUBTREE_STATE" = "push" ]
+  local before
+  before="$(git rev-parse vendor/a/feature-1)"
+  run push_one "vendor/a" "feature-1" "main"
+  [ "$status" -eq 0 ]
+  git -C "$upstream" merge-base --is-ancestor "$before" feature-1
+}

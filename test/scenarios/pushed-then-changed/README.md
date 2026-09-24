@@ -9,11 +9,9 @@ has nothing but that push.
   pushed one.
 - **Sync point**: still `seed` -- a push doesn't move it.
 
-Compared with the sync point alone, both sides changed. But the remote's
-tip is recognisably our own push: `git subtree split` copies the author,
-dates and message of the local commit it came from, and its tree is
-`vendor/a` at that commit. So only local changed since, and a push
-fast-forwards the remote.
+Compared with the sync point alone, both sides changed. But splitting
+`HEAD` rebuilds the pushed commit exactly, so the remote's tip is an
+ancestor of what `HEAD` would push, and a push fast-forwards the remote.
 
 Expected `classify_subtree` result: `push`. `common.bats` also covers
 what happens when someone else commits on the remote after that push:

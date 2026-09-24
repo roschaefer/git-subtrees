@@ -208,10 +208,12 @@ regex_escape() {
 # pathspec-limited `git log` would never match it (git log's history
 # simplification also hides it behind the merge commit). Empty output means
 # this path has never been initialized via `git subtree add`/`pull`.
+# Merges are skipped: push's `--rejoin` merge carries the same trailers, but
+# its tree is the whole monorepo.
 find_sync_commit() {
   local path="$1" pattern
   pattern="^git-subtree-dir: $(regex_escape "$path")\$"
-  git log --format=%H --extended-regexp --grep="$pattern" -1 2>/dev/null || true
+  git log --no-merges --format=%H --extended-regexp --grep="$pattern" -1 2>/dev/null || true
 }
 
 # Extracts the upstream commit SHA a sync commit (see find_sync_commit)
@@ -374,11 +376,12 @@ classify_subtree() {
   # missing locally.
   SUBTREE_SPLIT_SHA="$(sync_split_sha "$sync_commit")"
 
-  local local_split
-  if ! local_split="$(git subtree split -q --prefix="$path" HEAD 2>/dev/null)" || [[ -z "$local_split" ]]; then
-    # split needs every recorded upstream commit. If one is missing, we
-    # can't tell who is ahead; say the remote changed, so merge_one gets to
-    # fetch it.
+  # split needs the recorded upstream commit (newer git fails without it,
+  # older git builds unrelated history). If it's missing, we can't tell who
+  # is ahead; say the remote changed, so merge_one gets to fetch it.
+  local local_split=""
+  if ! git cat-file -e "${SUBTREE_SPLIT_SHA}^{commit}" 2>/dev/null ||
+    ! local_split="$(git subtree split -q --prefix="$path" HEAD 2>/dev/null)" || [[ -z "$local_split" ]]; then
     if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]]; then
       SUBTREE_STATE="pull"
     else

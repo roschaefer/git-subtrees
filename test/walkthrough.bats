@@ -7,7 +7,8 @@
   [ "$status" -eq 0 ]
 
   local expected actual
-  # Step 5 relies on recognising our own push (README, "After a push").
+  # Step 5 relies on split rebuilding our own push (README, "How the state
+  # is decided").
   expected="up-to-date
 missing-at-head (unchanged vs base 'main')
 missing-at-head (changed vs base 'main')
