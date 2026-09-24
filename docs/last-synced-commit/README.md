@@ -56,8 +56,10 @@ section (`push`, `pull`, `diverged`, ...).
 2. **It follows `HEAD`, not the branch name.** A branch cut from `main`
    inherits `main`'s sync point. Merging another branch in brings that
    branch's sync points along. Nothing compares `feature-1` to `feature-2`.
-3. **Only `add` and `pull` move it.** Each writes a new squash commit.
-   `push` writes nothing into your history, so pushing never advances it.
+3. **`add`, `pull` and `push` move it.** Each writes a new squash commit.
+   `push` writes it only after the remote accepted the push, so a rejected
+   push leaves the sync point where it was. A push made with plain
+   `git subtree push` instead of `git subtrees push` doesn't move it.
 4. **It must come from a squash.** A plain `git subtree add` (no
    `--squash`) makes the sync commit itself the merge, so its tree is the
    whole monorepo rather than U's content.
@@ -66,7 +68,7 @@ section (`push`, `pull`, `diverged`, ...).
 
 The sync point says what `vendor/a` looked like when it last matched
 upstream. It can't say whether *this branch* changed anything, because it
-is inherited from whatever branch you cut from and never moves on `push`.
+is inherited from whatever branch you cut from.
 So when the remote has no branch named like yours, the tool doesn't use it.
 It compares inside the monorepo instead, with the **base branch**:
 
@@ -105,9 +107,9 @@ reports for the current branch.
 | 1 | `subtree add --squash` on `main` | S1 created | `up-to-date` | Local equals remote `main`. |
 | 2 | Cut `feature-1`; remote has no such branch | S1 (inherited) | `missing-at-head`, **unchanged** vs base `main` | Nothing under `vendor/a` differs from the merge base with `main`, so `push` skips it. |
 | 3 | Commit a change under `vendor/a` | S1 | `missing-at-head`, **changed** vs base `main` | `vendor/a` differs from the merge base, so `push` would create `feature-1`. |
-| 4 | `subtree push` creates remote `feature-1` | S1 (unchanged) | `up-to-date` | The remote branch exists now, so the same-name comparison applies, and it equals local. Note the sync point did not move. |
-| 5 | Another branch changes `vendor/a` too; merge it into `feature-1` | S1 | `diverged` | See limitation 1. |
-| 6 | Remote `feature-1` is deleted | S1 | `missing-at-head`, **changed** vs base `main` | Back to the base-branch case: `feature-1` still differs from `main`. |
+| 4 | `git subtrees push` creates remote `feature-1` | **P1** | `up-to-date` | The remote branch exists now, so the same-name comparison applies, and it equals local. The push wrote sync point P1. |
+| 5 | `feature-2` changes `vendor/a` too and is pushed; merge it into `feature-1` | **P2** (from `feature-2`) | `diverged` | The merge brought `feature-2`'s push P2, the newest sync point. P2 is on remote `feature-2`, not `feature-1`, so remote `feature-1` looks changed. See limitation 1. |
+| 6 | Remote `feature-1` is deleted | P2 | `missing-at-head`, **changed** vs base `main` | Back to the base-branch case: `feature-1` still differs from `main`. |
 | 7 | Upstream `main` moves; `git subtrees pull` on `main` | **S2** | `up-to-date` | `pull` wrote a new squash commit, so the sync point advanced. |
 | 8 | Merge `main` into `feature-1` | S2 (inherited) | `missing-at-head`, **changed** vs base `main` | The merge brought S2 in. `feature-1` still has changes relative to the merge base with `main`. |
 
@@ -116,10 +118,11 @@ the base branch is found there.
 
 ## Known limitations
 
-1. **After a push, further local changes look `diverged`.** This is a
-   consequence of property 3. The remote branch now differs from U (because
-   *you* pushed to it), and local differs from S, so the tool sees two-sided
-   change. It can't tell the remote's change was your own push. Step 5.
+1. **The newest sync point may belong to another branch.** Sync points
+   aren't tied to a remote branch, and the newest one wins (property 2).
+   After merging a branch that was pushed to a remote branch of its own,
+   the current branch's remote looks changed, and further local changes
+   look `diverged`, although `push` fast-forwards it. Step 5.
 2. **The base branch has to be findable.** With no `origin/HEAD`, no
    `init.defaultBranch` and no `--base`, `push` refuses on a branch the
    remote lacks. A monorepo whose own remote isn't called `origin` gets no
@@ -133,5 +136,4 @@ the base branch is found there.
    cut from `feature-1` (not from the base branch) counts everything
    `feature-1` changed as its own, unless you pass `--base feature-1`.
 
-Treating a successful push as a sync point would fix limitation 1. It is
-not implemented; this page documents what the tool does now.
+This page documents what the tool does now.

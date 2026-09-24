@@ -56,9 +56,17 @@ export GIT_AUTHOR_NAME=Walkthrough GIT_AUTHOR_EMAIL=walkthrough@example.com
 export GIT_COMMITTER_NAME=Walkthrough GIT_COMMITTER_EMAIL=walkthrough@example.com
 
 step() { printf '\n=== %s\n' "$*"; }
+# A fake clock, one minute per command: which sync point is the newest
+# decides the state, so commits must not share a timestamp.
+clock=1700000000
+tick() {
+  clock=$((clock + 60))
+  export GIT_AUTHOR_DATE="@$clock +0000" GIT_COMMITTER_DATE="@$clock +0000"
+}
 # Echoes the command, then runs it quietly.
 run() {
   printf '$ %s\n' "$*"
+  tick
   "$@" >/dev/null 2>&1
 }
 
@@ -92,6 +100,7 @@ show_state() {
 # Adds one commit to the upstream's main, the way a remote collaborator would.
 upstream_commit() {
   local tmp
+  tick
   tmp="$(mktemp -d)"
   git clone -q "$upstream" "$tmp" 2>/dev/null
   (
@@ -130,7 +139,7 @@ run git commit -m "feature-1: change vendor/a"
 show_state
 
 step "4. Push it (git subtree push) -- remote feature-1 now exists"
-run git subtree push --prefix=vendor/a vendor/a feature-1
+run "$root/git-subtrees" push vendor/a
 run git fetch vendor/a
 show_state
 
@@ -139,7 +148,7 @@ run git checkout -b feature-2 main
 echo two >vendor/a/two.txt
 run git add vendor/a/two.txt
 run git commit -m "feature-2: change vendor/a"
-run git subtree push --prefix=vendor/a vendor/a feature-2
+run "$root/git-subtrees" push vendor/a
 run git checkout feature-1
 run git merge --no-edit feature-2
 run git fetch vendor/a

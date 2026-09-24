@@ -208,10 +208,12 @@ regex_escape() {
 # pathspec-limited `git log` would never match it (git log's history
 # simplification also hides it behind the merge commit). Empty output means
 # this path has never been initialized via `git subtree add`/`pull`.
+# Merges are skipped: a `split --rejoin` merge carries the same trailers, but
+# its tree is the whole monorepo.
 find_sync_commit() {
   local path="$1" pattern
   pattern="^git-subtree-dir: $(regex_escape "$path")\$"
-  git log --format=%H --extended-regexp --grep="$pattern" -1 2>/dev/null || true
+  git log --no-merges --format=%H --extended-regexp --grep="$pattern" -1 2>/dev/null || true
 }
 
 # Extracts the upstream commit SHA a sync commit (see find_sync_commit)

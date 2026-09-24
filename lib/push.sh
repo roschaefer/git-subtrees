@@ -8,6 +8,11 @@ Pushes local subtree changes upstream. Defaults to every discovered
 subtree with changes when no paths are given. Shares one SSH connection
 (ControlMaster/ControlPersist) across pushes to the same host.
 
+After the remote accepts a push, push records it in the monorepo as a
+new sync point (a squash commit and a merge, as `pull --squash` writes),
+so the next status compares with what was pushed. That needs a clean
+worktree: push refuses with uncommitted changes.
+
 If the remote has no branch named like the current one, push creates it --
 but only for a subtree that changed on this branch compared with the
 monorepo's base branch (the branch this one was cut from), so working on a
@@ -81,8 +86,30 @@ push_one() {
     push | diverged) ;;
   esac
 
-  if ! git subtree push --prefix="$path" "$path" "$branch"; then
+  # Recording the push below writes a merge, which needs a clean worktree.
+  # Check first, so we never push without recording it.
+  if ! git diff-index --quiet HEAD --; then
+    log_err "$path: uncommitted changes -- commit or stash them before pushing"
+    return 1
+  fi
+
+  local split
+  if ! split="$(git subtree split -q --prefix="$path" 2>/dev/null)" || [[ -z "$split" ]]; then
+    log_err "$path: split failed"
+    return 1
+  fi
+  if ! git push "$path" "$split:refs/heads/$branch"; then
     log_err "$path: push failed"
+    return 1
+  fi
+  # Only after the remote accepted it: record the push as a new sync point,
+  # the same squash commit `pull --squash` writes. Without it, the sync
+  # point would stay behind and the remote would look changed after our own
+  # push. A path never added with `git subtree add` has no sync point to
+  # move, and git-subtree refuses to squash into it.
+  if [[ -n "$(find_sync_commit "$path")" ]] && ! git subtree merge -q --prefix="$path" --squash \
+    -m "Record push of '$path' to '$branch' at ${split:0:7}" "$split" >/dev/null; then
+    log_err "$path: pushed, but recording the new sync point failed"
     return 1
   fi
   log_ok "$path: pushed"
