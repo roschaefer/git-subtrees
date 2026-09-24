@@ -310,6 +310,17 @@ changes_vs_base() {
   fi
 }
 
+# Succeeds if a commit since the merge that brought <sync-commit> into HEAD
+# touched <path>. The squash commit's only child is that merge, so it's the
+# last merge on the ancestry path in topological order. Also succeeds if
+# there's no such merge: then nothing is known to be untouched.
+touched_since_sync() {
+  local path="$1" sync_commit="$2" sync_merge
+  sync_merge="$(git rev-list --topo-order --ancestry-path --merges "$sync_commit..HEAD" | tail -1)"
+  [[ -z "$sync_merge" ]] && return 0
+  [[ -n "$(git rev-list -1 --full-history "$sync_merge..HEAD" -- "$path")" ]]
+}
+
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
 # Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
 # globals rather than returning a value, since callers (status, push, pull)
@@ -385,27 +396,35 @@ classify_subtree() {
   local split_available=0
   git cat-file -e "${SUBTREE_SPLIT_SHA}^{commit}" 2>/dev/null && split_available=1
 
-  # Without local changes the remote must have moved, and there's nothing
-  # for split to rebuild: skip it, it walks the whole history. If the
-  # recorded upstream commit is missing, say `pull`, so merge_one gets to
-  # fetch it.
-  if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]]; then
-    if ((split_available)) && ! git merge-base "$SUBTREE_SPLIT_SHA" "$target_ref" >/dev/null 2>&1; then
-      SUBTREE_STATE="unrelated-history"
-    else
+  # Skip split -- it walks the whole history -- when nothing local can be
+  # ahead: no commit since the merge that brought the sync point in touched
+  # <path>. Equal content alone isn't enough: a pushed change and its
+  # revert leave the sync point's tree, but split still has both to push.
+  # If the recorded upstream commit is missing, say `pull`, so merge_one
+  # gets to fetch it.
+  if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]] &&
+    ! touched_since_sync "$path" "$sync_commit"; then
+    if ((!split_available)) || git merge-base --is-ancestor "$SUBTREE_SPLIT_SHA" "$target_ref"; then
       SUBTREE_STATE="pull"
+      return
     fi
-    return
+    if ! git merge-base "$SUBTREE_SPLIT_SHA" "$target_ref" >/dev/null 2>&1; then
+      SUBTREE_STATE="unrelated-history"
+      return
+    fi
+    # The remote was rewound or rewritten: let split decide.
   fi
 
   # split needs the recorded upstream commit (newer git fails without it,
   # older git builds unrelated history). If it's missing, we can't tell who
   # is ahead; say both changed, so merge_one gets to fetch it.
-  local local_split=""
-  if ((!split_available)) ||
-    ! local_split="$(git subtree split -q --prefix="$path" HEAD 2>/dev/null)" || [[ -z "$local_split" ]]; then
+  if ((!split_available)); then
     SUBTREE_STATE="diverged"
     return
+  fi
+  local local_split
+  if ! local_split="$(git subtree split -q --prefix="$path" HEAD)" || [[ -z "$local_split" ]]; then
+    die "$path: git subtree split failed -- can't tell whether local or remote is ahead"
   fi
 
   local remote_head

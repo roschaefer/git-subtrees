@@ -42,9 +42,11 @@ Two commits, both found by looking backwards from `HEAD`
 ## How the state is decided
 
 First the cheap checks. If `vendor/a` equals the remote branch's content:
-`up-to-date`. If `vendor/a` still equals S's tree, nothing changed locally,
-so the remote moved: `pull` (or `unrelated-history` if the remote shares
-no history with U).
+`up-to-date`. If no commit since the merge of S touched `vendor/a`, nothing
+changed locally, so the remote moved: `pull` if it descends from U,
+`unrelated-history` if it shares no history with U. (Equal content alone
+isn't enough: a pushed change and its revert leave S's tree, but still
+need pushing.)
 
 Otherwise, `git subtree split` answers who is ahead. It rebuilds
 `vendor/a`'s history as the commits a push would send, mapping S to U.
@@ -61,8 +63,9 @@ the result, H, with the remote branch's tip R by ancestry:
 | no common ancestor | `unrelated-history` |
 
 Without S there's nothing to split from: `unrelated-history`. If U isn't
-available locally, split can't run either: `diverged`, so that `pull` gets
-to fetch U.
+available locally, split can't run either. Then it's `pull` when nothing
+changed locally (the cheap check above), and `diverged` otherwise; either
+way `pull` gets to fetch U. Any other split failure is an error.
 
 split walks every commit reachable from `HEAD`, a few milliseconds each,
 whether or not it touches `vendor/a`. S gives it a mapping but doesn't let

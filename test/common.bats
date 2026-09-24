@@ -142,6 +142,45 @@ setup() {
   [ "$SUBTREE_STATE" = "pull" ]
 }
 
+@test "classify_subtree: push after our own push and its revert" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  # Back to the sync point's content, but split still has the pushed
+  # commit and the reverts on top of it.
+  git revert --no-edit HEAD HEAD~1 >/dev/null
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "push" ]
+}
+
+@test "classify_subtree: push when the remote was rewound behind the sync point" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  seed_bare_repo "$upstream" "second"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  git -C "$upstream" update-ref refs/heads/main main~1
+  cd "$monorepo"
+  git fetch -q --force vendor/a
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "push" ]
+}
+
+@test "classify_subtree: a failing split is an error, not a state" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  git() {
+    if [[ "$1" == subtree && "$2" == split ]]; then
+      echo "fatal: disk full" >&2
+      return 1
+    fi
+    command git "$@"
+  }
+  run classify_subtree "vendor/a" "main"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"disk full"* ]]
+  [[ "$output" == *"vendor/a: git subtree split failed"* ]]
+}
+
 @test "classify_subtree: pull" {
   scenario_pull_ahead "$monorepo" "$upstream"
   cd "$monorepo"
