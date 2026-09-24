@@ -129,6 +129,19 @@ setup() {
   [ "$SUBTREE_STATE" = "diverged" ]
 }
 
+@test "classify_subtree: pull without splitting when local didn't change" {
+  scenario_pull_ahead "$monorepo" "$upstream"
+  cd "$monorepo"
+  git() {
+    if [[ "$1" == subtree && "$2" == split ]]; then
+      return 1
+    fi
+    command git "$@"
+  }
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "pull" ]
+}
+
 @test "classify_subtree: pull" {
   scenario_pull_ahead "$monorepo" "$upstream"
   cd "$monorepo"

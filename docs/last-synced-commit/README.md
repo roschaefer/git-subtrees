@@ -41,11 +41,16 @@ Two commits, both found by looking backwards from `HEAD`
 
 ## How the state is decided
 
-S and U are where `git subtree split` starts: it maps S to U, and rebuilds
-every commit since as the commit a push would send. split is
-deterministic, so for commits you already pushed, it rebuilds exactly the
-commits the remote has. The tool splits `HEAD` and compares the result, H,
-with the remote branch's tip R by ancestry:
+First the cheap checks. If `vendor/a` equals the remote branch's content:
+`up-to-date`. If `vendor/a` still equals S's tree, nothing changed locally,
+so the remote moved: `pull` (or `unrelated-history` if the remote shares
+no history with U).
+
+Otherwise, `git subtree split` answers who is ahead. It rebuilds
+`vendor/a`'s history as the commits a push would send, mapping S to U.
+split is deterministic, so for commits you already pushed, it rebuilds
+exactly the commits the remote has. The tool splits `HEAD` and compares
+the result, H, with the remote branch's tip R by ancestry:
 
 | | State |
 |---|---|
@@ -56,15 +61,15 @@ with the remote branch's tip R by ancestry:
 | no common ancestor | `unrelated-history` |
 
 Without S there's nothing to split from: `unrelated-history`. If U isn't
-available locally, split can't run either. Then the tool compares
-`vendor/a` with S's tree: unchanged is `pull`, changed is `diverged`, so
-that `pull` gets to fetch U.
+available locally, split can't run either: `diverged`, so that `pull` gets
+to fetch U.
 
-split walks every commit since the newest point where it knows a
-monorepo-to-split mapping: S, or a `--rejoin` checkpoint that
-`git subtrees push` leaves. Each costs roughly 10ms, so a checkpoint on
-every push keeps `status` fast. The checkpoint is a merge carrying the same
-trailers as S; `find_sync_commit` skips merges, so it's never taken for S.
+split walks every commit reachable from `HEAD`, a few milliseconds each,
+whether or not it touches `vendor/a`. S gives it a mapping but doesn't let
+it skip history; only a `git subtree split --rejoin` merge would. So
+`status` gets slower as the monorepo grows, for each subtree with local
+changes it hasn't pushed. `find_sync_commit` skips merges, so a `--rejoin`
+merge, carrying the same trailers as S, is never taken for S.
 
 ## Properties worth knowing
 
@@ -78,8 +83,7 @@ trailers as S; `find_sync_commit` skips merges, so it's never taken for S.
 3. **Only `add` and `pull` move it.** Each writes a new squash commit.
    A push doesn't need to: split rebuilds the pushed commits, so the
    remote holding your own push reads as `push` or `up-to-date`, not as a
-   remote change. `git subtrees push` does leave a split checkpoint, which
-   only makes the next split faster.
+   remote change.
 4. **It must come from a squash.** A plain `git subtree add` (no
    `--squash`) makes the sync commit itself the merge, so its tree is the
    whole monorepo rather than U's content.

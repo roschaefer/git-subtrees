@@ -8,10 +8,6 @@ Pushes local subtree changes upstream. Defaults to every discovered
 subtree with changes when no paths are given. Shares one SSH connection
 (ControlMaster/ControlPersist) across pushes to the same host.
 
-push splits with --rejoin, which merges a record of the split into the
-monorepo, so later status checks stay fast. That needs a clean worktree:
-push refuses with uncommitted changes.
-
 If the remote has no branch named like the current one, push creates it --
 but only for a subtree that changed on this branch compared with the
 monorepo's base branch (the branch this one was cut from), so working on a
@@ -85,21 +81,7 @@ push_one() {
     push | diverged) ;;
   esac
 
-  # --rejoin records "this monorepo commit splits to that commit", so later
-  # splits -- every status -- stop there instead of walking all history
-  # since the last pull. It's only a cache: classify_subtree never reads it
-  # as a sync point. It needs a clean worktree, so check before splitting.
-  if ! git diff-index --quiet HEAD --; then
-    log_err "$path: uncommitted changes -- commit or stash them before pushing"
-    return 1
-  fi
-  # Split and push separately: older git's `subtree push` ignores --rejoin.
-  local split
-  if ! split="$(git subtree split -q --rejoin --squash --prefix="$path" 2>/dev/null)" || [[ -z "$split" ]]; then
-    log_err "$path: split failed"
-    return 1
-  fi
-  if ! git push "$path" "$split:refs/heads/$branch"; then
+  if ! git subtree push --prefix="$path" "$path" "$branch"; then
     log_err "$path: push failed"
     return 1
   fi

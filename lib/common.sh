@@ -208,8 +208,8 @@ regex_escape() {
 # pathspec-limited `git log` would never match it (git log's history
 # simplification also hides it behind the merge commit). Empty output means
 # this path has never been initialized via `git subtree add`/`pull`.
-# Merges are skipped: push's `--rejoin` merge carries the same trailers, but
-# its tree is the whole monorepo.
+# Merges are skipped: a `git subtree split --rejoin` merge carries the same
+# trailers, but its tree is the whole monorepo.
 find_sync_commit() {
   local path="$1" pattern
   pattern="^git-subtree-dir: $(regex_escape "$path")\$"
@@ -333,7 +333,9 @@ changes_vs_base() {
 # maps each squash commit to the upstream commit it recorded. Comparing that
 # commit with the remote branch by ancestry answers who is ahead, without
 # remembering anything about earlier pushes. Nothing is written but loose
-# objects.
+# objects. split walks the monorepo's whole history, so it only runs when
+# it's needed: when the content differs from the remote and changed
+# locally since the last sync.
 classify_subtree() {
   local path="$1" branch="$2" remote="$1"
   SUBTREE_STATE=""
@@ -376,17 +378,33 @@ classify_subtree() {
   # missing locally.
   SUBTREE_SPLIT_SHA="$(sync_split_sha "$sync_commit")"
 
+  # Local changes are measured against the squash commit's own tree -- the
+  # remote content it recorded -- not against the merge commit that brought
+  # it in: after pulling a divergence that merge already contains the local
+  # changes, which would hide them from push.
+  local split_available=0
+  git cat-file -e "${SUBTREE_SPLIT_SHA}^{commit}" 2>/dev/null && split_available=1
+
+  # Without local changes the remote must have moved, and there's nothing
+  # for split to rebuild: skip it, it walks the whole history. If the
+  # recorded upstream commit is missing, say `pull`, so merge_one gets to
+  # fetch it.
+  if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]]; then
+    if ((split_available)) && ! git merge-base "$SUBTREE_SPLIT_SHA" "$target_ref" >/dev/null 2>&1; then
+      SUBTREE_STATE="unrelated-history"
+    else
+      SUBTREE_STATE="pull"
+    fi
+    return
+  fi
+
   # split needs the recorded upstream commit (newer git fails without it,
   # older git builds unrelated history). If it's missing, we can't tell who
-  # is ahead; say the remote changed, so merge_one gets to fetch it.
+  # is ahead; say both changed, so merge_one gets to fetch it.
   local local_split=""
-  if ! git cat-file -e "${SUBTREE_SPLIT_SHA}^{commit}" 2>/dev/null ||
+  if ((!split_available)) ||
     ! local_split="$(git subtree split -q --prefix="$path" HEAD 2>/dev/null)" || [[ -z "$local_split" ]]; then
-    if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]]; then
-      SUBTREE_STATE="pull"
-    else
-      SUBTREE_STATE="diverged"
-    fi
+    SUBTREE_STATE="diverged"
     return
   fi
 

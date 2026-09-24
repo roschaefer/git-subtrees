@@ -277,35 +277,6 @@ remote_has_branch() {
   [[ "$output" == *"later change"* ]]
 }
 
-@test "push: leaves a --rejoin checkpoint that isn't taken for the sync point" {
-  scenario_pushed_then_changed "$monorepo" "$upstream"
-  cd "$monorepo"
-  run push_one "vendor/a" "main"
-  [ "$status" -eq 0 ]
-  git log -1 --format=%B HEAD | grep -q '^git-subtree-mainline:'
-  git fetch -q vendor/a
-  classify_subtree "vendor/a" "main"
-  [ "$SUBTREE_STATE" = "up-to-date" ]
-
-  echo "after checkpoint" >>vendor/a/file.txt
-  git commit -q -am "after checkpoint"
-  classify_subtree "vendor/a" "main"
-  [ "$SUBTREE_STATE" = "push" ]
-}
-
-@test "push: refuses with uncommitted changes, before pushing anything" {
-  scenario_pushed_then_changed "$monorepo" "$upstream"
-  cd "$monorepo"
-  local before
-  before="$(git -C "$upstream" rev-parse main)"
-  echo "dirty" >>vendor/a/file.txt
-
-  run push_one "vendor/a" "main"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"uncommitted changes"* ]]
-  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
-}
-
 @test "push: after merging another pushed branch, still push (walkthrough step 5 via push_one)" {
   hermetic_git_config
   make_bare_repo "$upstream"
