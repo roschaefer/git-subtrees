@@ -7,6 +7,7 @@ setup() {
   load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
   load 'scenarios/shared-remote-url/setup'
+  load 'scenarios/pushed-then-changed/setup'
   load 'scenarios/diverged-then-pulled/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
@@ -260,4 +261,18 @@ remote_has_branch() {
   git clone -q "$upstream" "$verify" 2>/dev/null
   [ -f "$verify/local.txt" ]
   [ -f "$verify/upstream.txt" ]
+}
+
+@test "push: after our own push and another local change, pushes again as a fast-forward" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a: pushed"* ]]
+  git -C "$upstream" merge-base --is-ancestor "$before" main
+  run git -C "$upstream" show main:file.txt
+  [[ "$output" == *"later change"* ]]
 }
