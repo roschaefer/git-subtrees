@@ -20,6 +20,7 @@
             pkgs.shfmt
             pkgs.bashInteractive
             pkgs.just
+            pkgs.hyperfine
             # Only for test/completions.bats: the zsh and fish completions.
             pkgs.zsh
             pkgs.fish
