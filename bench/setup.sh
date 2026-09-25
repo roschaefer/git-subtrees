@@ -16,8 +16,8 @@ connection, so network round trips cost something, as they do over SSH.
 With plain local remotes, fetching would look free.
 
 Environment (defaults in brackets):
-  BENCH_SUBTREES  number of subtrees [10]
-  BENCH_COMMITS   local commits per subtree since it was added [50]
+  BENCH_SUBTREES  number of subtrees [5]
+  BENCH_COMMITS   local commits per subtree since it was added [10]
   BENCH_LATENCY   seconds of delay per remote connection [0.2]
 EOF
 }
@@ -32,14 +32,22 @@ EOF
 }
 
 dir="$1"
-subtrees="${BENCH_SUBTREES:-10}"
-commits="${BENCH_COMMITS:-50}"
+subtrees="${BENCH_SUBTREES:-5}"
+commits="${BENCH_COMMITS:-10}"
 latency="${BENCH_LATENCY:-0.2}"
 
 # The fixture must not depend on, or be slowed down by, the user's config.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=Bench GIT_AUTHOR_EMAIL=bench@example.com
 export GIT_COMMITTER_NAME=Bench GIT_COMMITTER_EMAIL=bench@example.com
+
+# Quotes a path for the sh -c command in an ext:: URL: single quotes for
+# sh, then ext::'s own escapes, "%%" for "%" and "% " for a space.
+ext_quote() {
+  local quoted="'${1//\'/\'\\\'\'}'"
+  quoted="${quoted//%/%%}"
+  printf '%s' "${quoted// /% }"
+}
 
 rm -rf "$dir"
 mkdir -p "$dir/upstream"
@@ -61,7 +69,7 @@ for ((i = 1; i <= subtrees; i++)); do
   git -C "$seed" push -q "$upstream" main
   rm -rf "$seed"
 
-  git remote add "packages/sub$i" "ext::sh -c sleep% $latency;% exec% %S% $upstream"
+  git remote add "packages/sub$i" "ext::sh -c sleep% $latency;% exec% %S% $(ext_quote "$upstream")"
   git fetch -q "packages/sub$i" 2>/dev/null
   git subtree add -q --prefix="packages/sub$i" "packages/sub$i" main --squash >/dev/null 2>&1
 done
@@ -90,3 +98,6 @@ git fetch -q --all
 for ((round = commits / 2 + 1; round <= commits; round++)); do
   commit_round "$round"
 done
+
+# Marks the fixture complete, so an interrupted build is never reused.
+touch "$dir/complete"

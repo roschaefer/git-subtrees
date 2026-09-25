@@ -11,15 +11,18 @@ jobs:
   benchmark:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # main
       - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # main
 
-      - name: benchmark this PR against its base
+      - name: benchmark this PR, merged into its base, against the base
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -27,7 +30,7 @@ jobs:
           {
             echo "## Benchmark: this PR vs. its base"
             echo
-            echo "\`this\` is this PR's head, \`compared\` is its base (${BASE_SHA:0:7})."
+            echo "\`this\` is this PR merged into its base, \`compared\` is the base alone (${BASE_SHA:0:7})."
             echo
-            nix develop --command bench/run.sh --compare "$RUNNER_TEMP/base/git-subtrees" --runs 3
+            nix develop --command bench/run.sh --compare "$RUNNER_TEMP/base/git-subtrees"
           } >>"$GITHUB_STEP_SUMMARY"

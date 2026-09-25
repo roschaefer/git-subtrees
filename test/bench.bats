@@ -2,7 +2,8 @@
 # tests pin down the fixture's shape, which the timings depend on.
 
 setup() {
-  fixture="$BATS_TEST_TMPDIR/bench"
+  # A space and a "%" in the path must survive the ext:: remote URLs.
+  fixture="$BATS_TEST_TMPDIR/bench dir 100%"
   BENCH_SUBTREES=2 BENCH_COMMITS=4 BENCH_LATENCY=0 \
     "$BATS_TEST_DIRNAME/../bench/setup.sh" "$fixture"
   cd "$fixture/monorepo"
@@ -25,4 +26,17 @@ setup() {
   done
   run git log --format=%s -- packages/sub1
   [[ "$output" == *"sub1: round 4"* ]]
+}
+
+@test "bench fixture: marked complete only once setup has finished" {
+  [ -e "$fixture/complete" ]
+
+  # A setup that fails after the monorepo exists must leave no marker, so
+  # bench/run.sh rebuilds it instead of timing a half-built fixture.
+  local broken="$BATS_TEST_TMPDIR/broken"
+  BENCH_SUBTREES=1 BENCH_COMMITS=not-a-number BENCH_LATENCY=0 \
+    run "$BATS_TEST_DIRNAME/../bench/setup.sh" "$broken"
+  [ "$status" -ne 0 ]
+  [ -d "$broken/monorepo" ]
+  [ ! -e "$broken/complete" ]
 }
