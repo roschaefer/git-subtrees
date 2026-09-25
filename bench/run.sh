@@ -71,8 +71,8 @@ fi
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 cd "$fixture/monorepo"
 
-printf '%d subtrees, %d commits each since the last sync, %ss latency per remote connection.\n' \
-  "$BENCH_SUBTREES" "$BENCH_COMMITS" "$BENCH_LATENCY"
+printf '%d subtrees, %d commits each since the last sync, %ss latency per remote connection; %s, bash %s.\n' \
+  "$BENCH_SUBTREES" "$BENCH_COMMITS" "$BENCH_LATENCY" "$(git --version)" "${BASH_VERSION%%(*}"
 
 table="$(mktemp)"
 trap 'rm -f "$table"' EXIT

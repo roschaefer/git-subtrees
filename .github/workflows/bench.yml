@@ -29,5 +29,5 @@ jobs:
             echo
             echo "\`this\` is this PR's head, \`compared\` is its base (${BASE_SHA:0:7})."
             echo
-            nix develop --command bench/run.sh --compare "$RUNNER_TEMP/base/git-subtrees"
+            nix develop --command bench/run.sh --compare "$RUNNER_TEMP/base/git-subtrees" --runs 3
           } >>"$GITHUB_STEP_SUMMARY"
