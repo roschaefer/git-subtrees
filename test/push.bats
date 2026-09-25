@@ -7,6 +7,7 @@ setup() {
   load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
   load 'scenarios/shared-remote-url/setup'
+  load 'scenarios/pushed-then-changed/setup'
   load 'scenarios/diverged-then-pulled/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
@@ -260,4 +261,46 @@ remote_has_branch() {
   git clone -q "$upstream" "$verify" 2>/dev/null
   [ -f "$verify/local.txt" ]
   [ -f "$verify/upstream.txt" ]
+}
+
+@test "push: after our own push and another local change, pushes again as a fast-forward" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a: pushed"* ]]
+  git -C "$upstream" merge-base --is-ancestor "$before" main
+  run git -C "$upstream" show main:file.txt
+  [[ "$output" == *"later change"* ]]
+}
+
+@test "push: after merging another pushed branch, still push (walkthrough step 5 via push_one)" {
+  hermetic_git_config
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  cd "$monorepo"
+  git checkout -q -b feature-1
+  echo one >vendor/a/one.txt
+  git add vendor/a && git commit -q -m "feature-1: change vendor/a"
+  push_one "vendor/a" "feature-1" "main" >/dev/null 2>&1
+  git checkout -q -b feature-2 main
+  echo two >vendor/a/two.txt
+  git add vendor/a && git commit -q -m "feature-2: change vendor/a"
+  push_one "vendor/a" "feature-2" "main" >/dev/null 2>&1
+  git checkout -q feature-1
+  git merge -q --no-edit feature-2
+  git fetch -q vendor/a
+
+  classify_subtree "vendor/a" "feature-1"
+  [ "$SUBTREE_STATE" = "push" ]
+  local before
+  before="$(git rev-parse vendor/a/feature-1)"
+  run push_one "vendor/a" "feature-1" "main"
+  [ "$status" -eq 0 ]
+  git -C "$upstream" merge-base --is-ancestor "$before" feature-1
 }

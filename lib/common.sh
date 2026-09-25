@@ -208,10 +208,12 @@ regex_escape() {
 # pathspec-limited `git log` would never match it (git log's history
 # simplification also hides it behind the merge commit). Empty output means
 # this path has never been initialized via `git subtree add`/`pull`.
+# Merges are skipped: a `git subtree split --rejoin` merge carries the same
+# trailers, but its tree is the whole monorepo.
 find_sync_commit() {
   local path="$1" pattern
   pattern="^git-subtree-dir: $(regex_escape "$path")\$"
-  git log --format=%H --extended-regexp --grep="$pattern" -1 2>/dev/null || true
+  git log --no-merges --format=%H --extended-regexp --grep="$pattern" -1 2>/dev/null || true
 }
 
 # Extracts the upstream commit SHA a sync commit (see find_sync_commit)
@@ -308,6 +310,17 @@ changes_vs_base() {
   fi
 }
 
+# Succeeds if a commit since the merge that brought <sync-commit> into HEAD
+# touched <path>. The squash commit's only child is that merge, so it's the
+# last merge on the ancestry path in topological order. Also succeeds if
+# there's no such merge: then nothing is known to be untouched.
+touched_since_sync() {
+  local path="$1" sync_commit="$2" sync_merge
+  sync_merge="$(git rev-list --topo-order --ancestry-path --merges "$sync_commit..HEAD" | tail -1)"
+  [[ -z "$sync_merge" ]] && return 0
+  [[ -n "$(git rev-list -1 --full-history "$sync_merge..HEAD" -- "$path")" ]]
+}
+
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
 # Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
 # globals rather than returning a value, since callers (status, push, pull)
@@ -317,18 +330,23 @@ changes_vs_base() {
 #   not-connected     remote has never been fetched (no tracking refs at all)
 #   missing-at-head    remote has been fetched, but has no <branch> ref
 #   up-to-date          local path tree already matches remote tree
-#   push                 only local has changed since the last sync
-#   pull                 only remote has changed since the last sync
-#   diverged             both changed, but share a common sync point
-#   unrelated-history    both changed (or never synced), and share NO common
-#                         ancestor -- pull/push must not auto-merge this
+#   push                 remote is behind: pushing fast-forwards it
+#   pull                 local is behind: remote has commits we lack
+#   diverged             both have commits the other lacks, with a common
+#                         ancestor
+#   unrelated-history    no common ancestor at all (or never synced) --
+#                         pull/push must not auto-merge this
 #
 # Squash-based subtrees never make the raw remote commit an ancestor of
-# HEAD, so plain `git merge-base HEAD <target-ref>` is useless here. Instead
-# this reconstructs the last sync point from git-subtree's own
-# git-subtree-dir/git-subtree-split commit trailers, then compares real
-# remote commits (split_sha vs target_ref) via merge-base, and compares
-# local content (path tree at the sync commit vs at HEAD) via diff.
+# HEAD, so plain `git merge-base HEAD <target-ref>` is useless here.
+# Instead this asks `git subtree split` what HEAD would push: split is
+# deterministic, so it rebuilds the very commits an earlier push sent, and
+# maps each squash commit to the upstream commit it recorded. Comparing that
+# commit with the remote branch by ancestry answers who is ahead, without
+# remembering anything about earlier pushes. Nothing is written but loose
+# objects. split walks the monorepo's whole history, so it only runs when
+# it's needed: when the content differs from the remote and changed
+# locally since the last sync.
 classify_subtree() {
   local path="$1" branch="$2" remote="$1"
   SUBTREE_STATE=""
@@ -367,39 +385,60 @@ classify_subtree() {
     return
   fi
 
-  local split_sha
-  split_sha="$(sync_split_sha "$sync_commit")"
-  SUBTREE_SPLIT_SHA="$split_sha"
+  # merge_one needs this to fetch the last synced upstream commit when it's
+  # missing locally.
+  SUBTREE_SPLIT_SHA="$(sync_split_sha "$sync_commit")"
 
   # Local changes are measured against the squash commit's own tree -- the
   # remote content it recorded -- not against the merge commit that brought
   # it in: after pulling a divergence that merge already contains the local
   # changes, which would hide them from push.
-  local local_changed=1
-  if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]]; then
-    local_changed=0
-  fi
+  local split_available=0
+  git cat-file -e "${SUBTREE_SPLIT_SHA}^{commit}" 2>/dev/null && split_available=1
 
-  local remote_changed=1
-  if git cat-file -e "${split_sha}^{commit}" 2>/dev/null; then
-    if git merge-base --is-ancestor "$split_sha" "$target_ref" 2>/dev/null; then
-      local split_tree
-      split_tree="$(git rev-parse "${split_sha}^{tree}")"
-      [[ "$split_tree" == "$remote_tree" ]] && remote_changed=0
-    elif ! git merge-base "$split_sha" "$target_ref" >/dev/null 2>&1; then
+  # Skip split -- it walks the whole history -- when nothing local can be
+  # ahead: no commit since the merge that brought the sync point in touched
+  # <path>. Equal content alone isn't enough: a pushed change and its
+  # revert leave the sync point's tree, but split still has both to push.
+  # If the recorded upstream commit is missing, say `pull`, so merge_one
+  # gets to fetch it.
+  if [[ "$local_tree" == "$(git rev-parse "${sync_commit}^{tree}")" ]] &&
+    ! touched_since_sync "$path" "$sync_commit"; then
+    if ((!split_available)) || git merge-base --is-ancestor "$SUBTREE_SPLIT_SHA" "$target_ref"; then
+      SUBTREE_STATE="pull"
+      return
+    fi
+    if ! git merge-base "$SUBTREE_SPLIT_SHA" "$target_ref" >/dev/null 2>&1; then
       SUBTREE_STATE="unrelated-history"
       return
     fi
+    # The remote was rewound or rewritten: let split decide.
   fi
 
-  if ((local_changed && remote_changed)); then
+  # split needs the recorded upstream commit (newer git fails without it,
+  # older git builds unrelated history). If it's missing, we can't tell who
+  # is ahead; say both changed, so merge_one gets to fetch it.
+  if ((!split_available)); then
     SUBTREE_STATE="diverged"
-  elif ((remote_changed)); then
-    SUBTREE_STATE="pull"
-  elif ((local_changed)); then
-    SUBTREE_STATE="push"
-  else
+    return
+  fi
+  local local_split
+  if ! local_split="$(git subtree split -q --prefix="$path" HEAD)" || [[ -z "$local_split" ]]; then
+    die "$path: git subtree split failed -- can't tell whether local or remote is ahead"
+  fi
+
+  local remote_head
+  remote_head="$(git rev-parse "${target_ref}^{commit}")"
+  if [[ "$local_split" == "$remote_head" ]]; then
     SUBTREE_STATE="up-to-date"
+  elif git merge-base --is-ancestor "$remote_head" "$local_split"; then
+    SUBTREE_STATE="push"
+  elif git merge-base --is-ancestor "$local_split" "$remote_head"; then
+    SUBTREE_STATE="pull"
+  elif git merge-base "$local_split" "$remote_head" >/dev/null 2>&1; then
+    SUBTREE_STATE="diverged"
+  else
+    SUBTREE_STATE="unrelated-history"
   fi
 }
 

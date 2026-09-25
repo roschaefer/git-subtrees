@@ -39,13 +39,40 @@ Two commits, both found by looking backwards from `HEAD`
                                                   under vendor/a
 ```
 
-"Local changes" means `vendor/a` at `HEAD` differs from **S**'s tree.
-The merge of S is not a usable baseline: when `pull` merges a divergence,
-that merge already contains your unpushed local changes, and comparing
-against it would hide them from `push`.
-"Remote changes" means the remote branch's content differs from **U**.
-Comparing those two answers gives the states in the README's *Sync states*
-section (`push`, `pull`, `diverged`, ...).
+## How the state is decided
+
+First the cheap checks. If `vendor/a` equals the remote branch's content:
+`up-to-date`. If no commit since the merge of S touched `vendor/a`, nothing
+changed locally, so the remote moved: `pull` if it descends from U,
+`unrelated-history` if it shares no history with U. (Equal content alone
+isn't enough: a pushed change and its revert leave S's tree, but still
+need pushing.)
+
+Otherwise, `git subtree split` answers who is ahead. It rebuilds
+`vendor/a`'s history as the commits a push would send, mapping S to U.
+split is deterministic, so for commits you already pushed, it rebuilds
+exactly the commits the remote has. The tool splits `HEAD` and compares
+the result, H, with the remote branch's tip R by ancestry:
+
+| | State |
+|---|---|
+| H = R, or equal content | `up-to-date` |
+| R is an ancestor of H | `push` -- it fast-forwards the remote |
+| H is an ancestor of R | `pull` |
+| a common ancestor, but neither contains the other | `diverged` |
+| no common ancestor | `unrelated-history` |
+
+Without S there's nothing to split from: `unrelated-history`. If U isn't
+available locally, split can't run either. Then it's `pull` when nothing
+changed locally (the cheap check above), and `diverged` otherwise; either
+way `pull` gets to fetch U. Any other split failure is an error.
+
+split walks every commit reachable from `HEAD`, a few milliseconds each,
+whether or not it touches `vendor/a`. S gives it a mapping but doesn't let
+it skip history; only a `git subtree split --rejoin` merge would. So
+`status` gets slower as the monorepo grows, for each subtree with local
+changes it hasn't pushed. `find_sync_commit` skips merges, so a `--rejoin`
+merge, carrying the same trailers as S, is never taken for S.
 
 ## Properties worth knowing
 
@@ -57,7 +84,9 @@ section (`push`, `pull`, `diverged`, ...).
    inherits `main`'s sync point. Merging another branch in brings that
    branch's sync points along. Nothing compares `feature-1` to `feature-2`.
 3. **Only `add` and `pull` move it.** Each writes a new squash commit.
-   `push` writes nothing into your history, so pushing never advances it.
+   A push doesn't need to: split rebuilds the pushed commits, so the
+   remote holding your own push reads as `push` or `up-to-date`, not as a
+   remote change.
 4. **It must come from a squash.** A plain `git subtree add` (no
    `--squash`) makes the sync commit itself the merge, so its tree is the
    whole monorepo rather than U's content.
@@ -106,7 +135,7 @@ reports for the current branch.
 | 2 | Cut `feature-1`; remote has no such branch | S1 (inherited) | `missing-at-head`, **unchanged** vs base `main` | Nothing under `vendor/a` differs from the merge base with `main`, so `push` skips it. |
 | 3 | Commit a change under `vendor/a` | S1 | `missing-at-head`, **changed** vs base `main` | `vendor/a` differs from the merge base, so `push` would create `feature-1`. |
 | 4 | `subtree push` creates remote `feature-1` | S1 (unchanged) | `up-to-date` | The remote branch exists now, so the same-name comparison applies, and it equals local. Note the sync point did not move. |
-| 5 | Another branch changes `vendor/a` too; merge it into `feature-1` | S1 | `diverged` | See limitation 1. |
+| 5 | Another branch changes `vendor/a` too; merge it into `feature-1` | S1 | `push` | Splitting `HEAD` rebuilds the commit pushed in step 4, so remote `feature-1` is an ancestor of H. Pushing fast-forwards it. |
 | 6 | Remote `feature-1` is deleted | S1 | `missing-at-head`, **changed** vs base `main` | Back to the base-branch case: `feature-1` still differs from `main`. |
 | 7 | Upstream `main` moves; `git subtrees pull` on `main` | **S2** | `up-to-date` | `pull` wrote a new squash commit, so the sync point advanced. |
 | 8 | Merge `main` into `feature-1` | S2 (inherited) | `missing-at-head`, **changed** vs base `main` | The merge brought S2 in. `feature-1` still has changes relative to the merge base with `main`. |
@@ -116,10 +145,10 @@ the base branch is found there.
 
 ## Known limitations
 
-1. **After a push, further local changes look `diverged`.** This is a
-   consequence of property 3. The remote branch now differs from U (because
-   *you* pushed to it), and local differs from S, so the tool sees two-sided
-   change. It can't tell the remote's change was your own push. Step 5.
+1. **A push rewritten on the way isn't recognised.** If the pushed
+   commits were changed, e.g. with `git subtree push --annotate`, or
+   rebased on the remote, split doesn't rebuild them, and further local
+   changes look `diverged`. That's accurate: a push wouldn't fast-forward.
 2. **The base branch has to be findable.** With no `origin/HEAD`, no
    `init.defaultBranch` and no `--base`, `push` refuses on a branch the
    remote lacks. A monorepo whose own remote isn't called `origin` gets no
@@ -133,5 +162,4 @@ the base branch is found there.
    cut from `feature-1` (not from the base branch) counts everything
    `feature-1` changed as its own, unless you pass `--base feature-1`.
 
-Treating a successful push as a sync point would fix limitation 1. It is
-not implemented; this page documents what the tool does now.
+This page documents what the tool does now.

@@ -9,6 +9,7 @@ setup() {
   load 'scenarios/not-connected/setup'
   load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
+  load 'scenarios/pushed-then-changed/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -86,6 +87,98 @@ setup() {
   cd "$monorepo"
   classify_subtree "vendor/a" "main"
   [ "$SUBTREE_STATE" = "push" ]
+}
+
+@test "classify_subtree: push after our own push and another local change" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "push" ]
+}
+
+@test "classify_subtree: diverged when someone else committed on top of our push" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  seed_bare_repo "$upstream" "their change"
+  cd "$monorepo"
+  git fetch -q vendor/a
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "diverged" ]
+}
+
+@test "classify_subtree: pull when someone else committed on top of our push and local didn't change" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  seed_bare_repo "$upstream" "their change"
+  cd "$monorepo"
+  git reset -q --hard HEAD~1
+  git fetch -q vendor/a
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "pull" ]
+}
+
+@test "classify_subtree: someone else's commit with our content isn't taken for our push" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  # Replace the remote's tip with a commit of the same tree but other
+  # metadata, as if someone else had made the same change independently.
+  local theirs
+  theirs="$(GIT_AUTHOR_DATE='2001-01-01T00:00:00' GIT_COMMITTER_DATE='2001-01-01T00:00:00' \
+    git commit-tree 'vendor/a/main^{tree}' -p 'vendor/a/main~1' -m "their change")"
+  git push -q --force vendor/a "$theirs:refs/heads/main"
+  git fetch -q vendor/a
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "diverged" ]
+}
+
+@test "classify_subtree: pull without splitting when local didn't change" {
+  scenario_pull_ahead "$monorepo" "$upstream"
+  cd "$monorepo"
+  git() {
+    if [[ "$1" == subtree && "$2" == split ]]; then
+      return 1
+    fi
+    command git "$@"
+  }
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "pull" ]
+}
+
+@test "classify_subtree: push after our own push and its revert" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  # Back to the sync point's content, but split still has the pushed
+  # commit and the reverts on top of it.
+  git revert --no-edit HEAD HEAD~1 >/dev/null
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "push" ]
+}
+
+@test "classify_subtree: push when the remote was rewound behind the sync point" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  seed_bare_repo "$upstream" "second"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  git -C "$upstream" update-ref refs/heads/main main~1
+  cd "$monorepo"
+  git fetch -q --force vendor/a
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "push" ]
+}
+
+@test "classify_subtree: a failing split is an error, not a state" {
+  scenario_pushed_then_changed "$monorepo" "$upstream"
+  cd "$monorepo"
+  git() {
+    if [[ "$1" == subtree && "$2" == split ]]; then
+      echo "fatal: disk full" >&2
+      return 1
+    fi
+    command git "$@"
+  }
+  run classify_subtree "vendor/a" "main"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"disk full"* ]]
+  [[ "$output" == *"vendor/a: git subtree split failed"* ]]
 }
 
 @test "classify_subtree: pull" {

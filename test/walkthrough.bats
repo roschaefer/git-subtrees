@@ -7,13 +7,13 @@
   [ "$status" -eq 0 ]
 
   local expected actual
-  # Step 5 is a known limitation (README, "Known limitations"): if it gets
-  # fixed, update this list and the README together.
+  # Step 5 relies on split rebuilding our own push (README, "How the state
+  # is decided").
   expected="up-to-date
 missing-at-head (unchanged vs base 'main')
 missing-at-head (changed vs base 'main')
 up-to-date
-diverged
+push
 missing-at-head (changed vs base 'main')
 up-to-date
 missing-at-head (changed vs base 'main')"
