@@ -148,6 +148,12 @@ opens a shell with all development tools and the live `git-subtrees` on
     just fmt        # shfmt -w
     just test       # bats --recursive test
     just ci         # lint + fmt-check + test, same as CI
+    just bench      # time status/diff/fetch on a synthetic monorepo
+
+`just bench --compare <other checkout>/git-subtrees` times another version
+side by side, e.g. a worktree of `main`; see `bench/run.sh --help`. Pull
+requests get the same comparison against their base in the job summary of
+the Benchmark workflow once they're out of draft.
 
 Tests are in `test/`. Scenario fixtures are in `test/scenarios/`, one
 folder per scenario with a README that explains it.
