@@ -21,6 +21,13 @@ that the merge keeps the monorepo's tree. git-subtree can't do this on
 its own: `add` refuses an existing folder, and `merge --squash` refuses a
 folder that was never added.
 
+The merge also carries the `git-subtree-mainline:` and
+`git-subtree-split:` trailers of a `split --rejoin` merge. Without them,
+`git subtree split` would follow the merge's first parent into the
+folder's history from before the adoption, and the first push would
+publish it -- including files deleted since, such as a secret committed
+by mistake. `init.bats` covers that case.
+
 Expected result: `init` reports that it recorded the last sync, the
 worktree and `HEAD`'s tree are unchanged, the squash commit's
 `git-subtree-split:` trailer names the remote's `main`, and a `push` from a

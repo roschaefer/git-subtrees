@@ -355,3 +355,27 @@ setup() {
   [ "$status" -eq 0 ]
   git -C "$upstream" merge-base --is-ancestor main feature
 }
+
+@test "init: the first push after adopting a folder doesn't publish the folder's earlier history" {
+  hermetic_git_config
+  scenario_init_copied_content "$monorepo" "$upstream"
+  cd "$monorepo"
+  echo "TOP SECRET" >vendor/a/secret.txt
+  git add vendor/a/secret.txt
+  git commit -q -m "oops, a secret"
+  local secret
+  secret="$(git rev-parse HEAD:vendor/a/secret.txt)"
+  git rm -q vendor/a/secret.txt
+  git commit -q -m "remove the secret again"
+
+  cmd_init "vendor/a" "$upstream"
+  git checkout -q -b feature
+  echo "feature change" >>vendor/a/file.txt
+  git commit -q -am "feature change"
+  run push_one "vendor/a" "feature" "main"
+  [ "$status" -eq 0 ]
+
+  run git -C "$upstream" cat-file -e "$secret"
+  [ "$status" -ne 0 ]
+  [ "$(git -C "$upstream" log --format=%s feature)" = $'feature change\nseed' ]
+}
