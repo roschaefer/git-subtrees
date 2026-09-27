@@ -176,7 +176,7 @@ install_copy() {
 @test "cli: --version outside a clone prints the release version" {
   install_copy "$BATS_TEST_TMPDIR/install"
   local version
-  version="$(sed -n 's/^VERSION=//p' "$BATS_TEST_DIRNAME/../git-subtrees")"
+  version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$BATS_TEST_DIRNAME/../git-subtrees")"
 
   run "$BATS_TEST_TMPDIR/install/git-subtrees" --version
   [ "$status" -eq 0 ]
@@ -207,9 +207,13 @@ install_copy() {
   git -C "$outer" tag v9.9.9
   install_copy "$outer/vendor/git-subtrees"
   local version
-  version="$(sed -n 's/^VERSION=//p' "$BATS_TEST_DIRNAME/../git-subtrees")"
+  version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$BATS_TEST_DIRNAME/../git-subtrees")"
 
   run "$outer/vendor/git-subtrees/git-subtrees" --version
   [ "$status" -eq 0 ]
   [ "$output" = "git subtrees version $version" ]
+}
+
+@test "cli: VERSION carries the marker release-please bumps it by" {
+  grep -qx 'VERSION=[0-9.]* # x-release-please-version' "$BATS_TEST_DIRNAME/../git-subtrees"
 }
