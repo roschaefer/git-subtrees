@@ -126,3 +126,32 @@ jobs:
           prerelease: true
           make_latest: false
           files: dist/git-subtrees-edge.tar.gz
+
+  release:
+    needs: [lint-test, compat-matrix]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # A tarball or package has no .git, so --version reports VERSION.
+      - name: Check the tag matches VERSION
+        run: |
+          version="$(sed -n 's/^VERSION=//p' git-subtrees)"
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME doesn't match VERSION=$version in git-subtrees"
+            exit 1
+          fi
+
+      - name: Build tarball
+        run: |
+          mkdir -p dist
+          git archive --format=tar.gz --prefix=git-subtrees/ -o "dist/git-subtrees-$GITHUB_REF_NAME.tar.gz" HEAD
+
+      - name: Publish release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          generate_release_notes: true
+          files: dist/git-subtrees-${{ github.ref_name }}.tar.gz

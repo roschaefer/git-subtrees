@@ -7,6 +7,8 @@
 # subtree remote.
 set -euo pipefail
 
+VERSION=0.1.0
+
 if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
   printf '!!   git-subtrees requires Bash >= 4.4 (found %s)\n' "$BASH_VERSION" >&2
   exit 1
@@ -34,6 +36,20 @@ source "$script_dir/lib/push.sh"
 # shellcheck source=lib/status.sh
 source "$script_dir/lib/status.sh"
 
+# A clone knows its exact commit. A release tarball or package only knows
+# VERSION, and may sit inside some other repository that describe must not
+# report on.
+print_version() {
+  local version="$VERSION" toplevel
+  if toplevel="$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null)" &&
+    [[ "$toplevel" == "$script_dir" ]]; then
+    version="$(git -C "$script_dir" describe --tags --match 'v[0-9]*' --dirty 2>/dev/null)" ||
+      version="$VERSION"
+    version="${version#v}"
+  fi
+  printf 'git subtrees version %s\n' "$version"
+}
+
 top_usage() {
   cat <<'EOF'
 usage: git subtrees <command> [<args>]
@@ -53,7 +69,8 @@ Commands:
   push [--base <b>] [path...]    push local subtree changes upstream
   status [--base <b>] [path...]  show sync state of every remote
 
-Run 'git subtrees <command> -h' for command-specific help.
+Run 'git subtrees <command> -h' for command-specific help, and
+'git subtrees --version' for the version.
 EOF
 }
 
@@ -66,6 +83,10 @@ main() {
   case "$1" in
     -h | --help)
       top_usage
+      exit 0
+      ;;
+    --version)
+      print_version
       exit 0
       ;;
     diff)

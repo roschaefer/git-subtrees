@@ -162,6 +162,9 @@ Scenario fixtures for the tests are in `test/scenarios/`, each with a
 README. Pull requests out of draft get a benchmark against their base in
 the job summary of the Benchmark workflow.
 
+To release, set `VERSION` in `git-subtrees`, merge, then push a matching
+`v<VERSION>` tag from `main`. CI publishes the GitHub release.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
