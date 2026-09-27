@@ -142,22 +142,21 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       # Not gated on release_created: a rerun after a failed upload sees the
-      # release as already created, so this checks what's missing instead.
+      # release as already created, so this checks every release for what's
+      # missing instead.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Attach tarball to the latest release if it lacks one
+      - name: Attach tarballs to releases that lack one
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null)"; then
-            echo "no release yet"
-            exit 0
-          fi
-          asset="git-subtrees-$tag.tar.gz"
-          if [[ "$(gh release view "$tag" --json assets --jq "any(.assets[]; .name == \"$asset\")")" == true ]]; then
-            echo "$tag already has $asset"
-            exit 0
-          fi
-          git fetch --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
-          git archive --format=tar.gz --prefix=git-subtrees/ -o "$asset" "$tag"
-          gh release upload "$tag" "$asset"
+          gh release list --exclude-pre-releases --exclude-drafts --limit 1000 --json tagName --jq '.[].tagName' |
+            while read -r tag; do
+              asset="git-subtrees-$tag.tar.gz"
+              if [[ "$(gh release view "$tag" --json assets --jq "any(.assets[]; .name == \"$asset\")")" == true ]]; then
+                continue
+              fi
+              git fetch --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
+              git archive --format=tar.gz --prefix=git-subtrees/ -o "$asset" "$tag"
+              gh release upload "$tag" "$asset"
+            done
