@@ -29,9 +29,9 @@ an error and tells you how to fix it
 ## How it compares
 
 `git-subtrees` is a layer on `git subtree`, not a replacement: it fills in
-`--prefix`, remote and branch from [the contract](#the-contract) and runs
-`git subtree` for every subtree at once. Wherever plain Git does the job,
-it calls Git, hence Bash.
+`--prefix`, remote and branch from [the contract](#the-contract), so one
+command handles every subtree. Wherever plain Git does the job, it calls
+Git, hence Bash.
 
 Other tools keep a config of their own, and most don't follow your branch:
 
