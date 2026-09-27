@@ -151,44 +151,16 @@ subcommands and subtree paths.
 
 ## Development
 
-You need:
+With [Nix](https://nixos.org/download/) and
+[flakes](https://wiki.nixos.org/wiki/Flakes), run in the clone:
 
-- [Nix](https://nixos.org/download/) with
-  [flakes enabled](https://wiki.nixos.org/wiki/Flakes)
-- a clone of this repository
+    nix develop      # shell with the dev tools and this checkout on PATH
+    just --list      # lint, fmt, test, ci, bench, playground, ...
+    just playground  # try commands by hand in a throwaway monorepo
 
-Then, in the clone,
-
-    nix develop
-
-opens a shell with all development tools and the live `git-subtrees` on
-`PATH`.
-
-    just lint       # shellcheck
-    just fmt-check  # shfmt -d
-    just fmt        # shfmt -w
-    just test       # bats --recursive test
-    just ci         # lint + fmt-check + test, same as CI
-    just bench      # time status/diff/fetch on a synthetic monorepo
-
-`just bench --compare <other checkout>/git-subtrees` times another version
-side by side, e.g. a worktree of `main`; see `bench/run.sh --help`. Pull
-requests get the same comparison against their base in the job summary of
-the Benchmark workflow once they're out of draft.
-
-Tests are in `test/`. Scenario fixtures are in `test/scenarios/`, one
-folder per scenario with a README that explains it.
-
-    playground/setup.sh
-
-builds a throwaway monorepo with test remotes for trying things by hand.
-Run it inside `nix develop`. Pass `--no-shell` to print the sandbox path
-instead of opening a shell there.
-
-    simulate-remote-change <path> [message]
-
-also on `PATH` inside `nix develop`, pushes one new commit to a remote so
-you can try `pull` again.
+Scenario fixtures for the tests are in `test/scenarios/`, each with a
+README. Pull requests out of draft get a benchmark against their base in
+the job summary of the Benchmark workflow.
 
 ## License
 
