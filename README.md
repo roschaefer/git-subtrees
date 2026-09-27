@@ -26,6 +26,23 @@ refuses such remote names; with older versions, every command stops with
 an error and tells you how to fix it
 ([why](test/scenarios/nested-subtrees/README.md)).
 
+## How it compares
+
+`git-subtrees` is a layer on `git subtree`, not a replacement: it fills in
+`--prefix`, remote and branch from [the contract](#the-contract) and runs
+`git subtree` for every subtree at once. Wherever plain Git does the job,
+it calls Git, hence Bash.
+
+Other tools keep a config of their own, and most don't follow your branch:
+
+| Tool | Why it doesn't fit |
+| --- | --- |
+| `git submodule` | `git switch` doesn't switch the submodules' branches. `--recurse-submodules` only checks out a pinned commit. |
+| [git-subrepo](https://github.com/ingydotnet/git-subrepo) | A `.gitrepo` file per folder. Switching branches in the monorepo doesn't switch the branch a subrepo syncs with. |
+| [splitsh-lite](https://github.com/splitsh/lite) | One way only: it publishes read-only mirrors. |
+| [Josh](https://github.com/josh-project/josh) | The opposite model: the monorepo is authoritative, and people work in filtered views of it. |
+| [Copybara](https://github.com/google/copybara) | One repository is the source of truth. Syncing back needs a second, reverse workflow. |
+
 ## Commands
 
 Each command applies the familiar Git operation to every subtree at once,
