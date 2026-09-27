@@ -138,8 +138,11 @@ jobs:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
 
+      # The tagged commit, which a later push's run may be releasing.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: steps.release.outputs.release_created
+        with:
+          ref: ${{ steps.release.outputs.sha }}
 
       - name: Attach tarball
         if: steps.release.outputs.release_created

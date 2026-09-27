@@ -187,6 +187,7 @@ install_copy() {
   hermetic_git_config
   local clone="$BATS_TEST_TMPDIR/clone"
   install_copy "$clone"
+  sed -i 's/^VERSION=[^ ]*/VERSION=9.9.9/' "$clone/git-subtrees"
   git -C "$clone" init -q
   git -C "$clone" add .
   git -C "$clone" -c user.name=t -c user.email=t@example.com commit -q -m release
@@ -210,6 +211,22 @@ install_copy() {
   version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$BATS_TEST_DIRNAME/../git-subtrees")"
 
   run "$outer/vendor/git-subtrees/git-subtrees" --version
+  [ "$status" -eq 0 ]
+  [ "$output" = "git subtrees version $version" ]
+}
+
+@test "cli: --version copied to the root of another repository ignores that repository's tags" {
+  hermetic_git_config
+  local outer="$BATS_TEST_TMPDIR/outer"
+  install_copy "$outer"
+  git -C "$outer" init -q
+  git -C "$outer" add .
+  git -C "$outer" -c user.name=t -c user.email=t@example.com commit -q -m outer
+  git -C "$outer" tag v9.9.9
+  local version
+  version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$BATS_TEST_DIRNAME/../git-subtrees")"
+
+  run "$outer/git-subtrees" --version
   [ "$status" -eq 0 ]
   [ "$output" = "git subtrees version $version" ]
 }
