@@ -133,10 +133,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
+      # A fine-grained token rather than GITHUB_TOKEN, whose pull requests
+      # and tags trigger no workflows, so the release PR would get no CI.
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       # Not gated on release_created: a rerun after a failed upload sees the
       # release as already created, so this checks what's missing instead.
