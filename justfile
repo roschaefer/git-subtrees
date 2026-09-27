@@ -21,12 +21,14 @@ test:
     bats --recursive test
 
 # Time commands on a synthetic monorepo; see `just bench --help`
+[positional-arguments]
 bench *args:
-    @bench/run.sh {{args}}
+    @bench/run.sh "$@"
 
 # Open a shell in a throwaway monorepo to try commands by hand; see `just playground --help`
+[positional-arguments]
 playground *args:
-    @playground/setup.sh {{args}}
+    @playground/setup.sh "$@"
 
 # Everything CI runs: lint, fmt-check and test
 ci: lint fmt-check test
