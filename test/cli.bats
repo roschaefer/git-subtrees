@@ -166,67 +166,11 @@ setup() {
   [[ "$output" == *"status [--base <b>]"* ]]
 }
 
-# Copies the entrypoint and lib/ into <dir>, as a release tarball or a
-# package would install them.
-install_copy() {
-  mkdir -p "$1"
-  cp -R "$BATS_TEST_DIRNAME/../git-subtrees" "$BATS_TEST_DIRNAME/../lib" "$1/"
-}
-
-@test "cli: --version outside a clone prints the release version" {
-  install_copy "$BATS_TEST_TMPDIR/install"
+@test "cli: --version prints VERSION" {
   local version
-  version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$BATS_TEST_DIRNAME/../git-subtrees")"
+  version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$entrypoint")"
 
-  run "$BATS_TEST_TMPDIR/install/git-subtrees" --version
-  [ "$status" -eq 0 ]
-  [ "$output" = "git subtrees version $version" ]
-}
-
-@test "cli: --version in a clone describes the checked-out commit" {
-  hermetic_git_config
-  local clone="$BATS_TEST_TMPDIR/clone"
-  install_copy "$clone"
-  sed -i 's/^VERSION=[^ ]*/VERSION=9.9.9/' "$clone/git-subtrees"
-  git -C "$clone" init -q
-  git -C "$clone" add .
-  git -C "$clone" -c user.name=t -c user.email=t@example.com commit -q -m release
-  git -C "$clone" tag v9.9.9
-  git -C "$clone" tag edge
-  git -C "$clone" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m next
-
-  run "$clone/git-subtrees" --version
-  [ "$status" -eq 0 ]
-  [[ "$output" == "git subtrees version 9.9.9-1-g"* ]]
-}
-
-@test "cli: --version unpacked inside another repository ignores that repository's tags" {
-  hermetic_git_config
-  local outer="$BATS_TEST_TMPDIR/outer"
-  git init -q "$outer"
-  git -C "$outer" -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m outer
-  git -C "$outer" tag v9.9.9
-  install_copy "$outer/vendor/git-subtrees"
-  local version
-  version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$BATS_TEST_DIRNAME/../git-subtrees")"
-
-  run "$outer/vendor/git-subtrees/git-subtrees" --version
-  [ "$status" -eq 0 ]
-  [ "$output" = "git subtrees version $version" ]
-}
-
-@test "cli: --version copied to the root of another repository ignores that repository's tags" {
-  hermetic_git_config
-  local outer="$BATS_TEST_TMPDIR/outer"
-  install_copy "$outer"
-  git -C "$outer" init -q
-  git -C "$outer" add .
-  git -C "$outer" -c user.name=t -c user.email=t@example.com commit -q -m outer
-  git -C "$outer" tag v9.9.9
-  local version
-  version="$(sed -n 's/^VERSION=\([^ ]*\).*/\1/p' "$BATS_TEST_DIRNAME/../git-subtrees")"
-
-  run "$outer/git-subtrees" --version
+  run "$entrypoint" --version
   [ "$status" -eq 0 ]
   [ "$output" = "git subtrees version $version" ]
 }

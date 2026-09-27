@@ -36,20 +36,6 @@ source "$script_dir/lib/push.sh"
 # shellcheck source=lib/status.sh
 source "$script_dir/lib/status.sh"
 
-# A clone knows its exact commit. A release tarball or package only knows
-# VERSION, and may sit in some other repository whose tags aren't ours: a
-# tag is only ours if this file at that tag carries the tag's VERSION.
-print_version() {
-  local version="$VERSION" tag file
-  if tag="$(git -C "$script_dir" describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null)" &&
-    file="$(git -C "$script_dir" show "$tag:./git-subtrees" 2>/dev/null)" &&
-    [[ $'\n'"$file" == *$'\n'"VERSION=${tag#v} "* ]]; then
-    version="$(git -C "$script_dir" describe --tags --match "$tag" --dirty)"
-    version="${version#v}"
-  fi
-  printf 'git subtrees version %s\n' "$version"
-}
-
 top_usage() {
   cat <<'EOF'
 usage: git subtrees <command> [<args>]
@@ -86,7 +72,7 @@ main() {
       exit 0
       ;;
     --version)
-      print_version
+      printf 'git subtrees version %s\n' "$VERSION"
       exit 0
       ;;
     diff)
