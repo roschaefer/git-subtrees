@@ -82,6 +82,11 @@ jobs:
     needs: [lint-test, compat-matrix]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    # One at a time: two runs could both find a tarball missing, and the
+    # second upload would fail on the asset the first one just added.
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
