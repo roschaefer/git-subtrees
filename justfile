@@ -7,14 +7,15 @@ lint:
     shellcheck playground/setup.sh playground/simulate-remote-change
     shellcheck completions/git-subtrees.bash
     shellcheck bench/setup.sh bench/run.sh
+    shellcheck docs/readme-demo.sh
 
 # Format with shfmt
 fmt:
-    shfmt -w -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh
+    shfmt -w -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh docs/readme-demo.sh
 
 # Check formatting with shfmt
 fmt-check:
-    shfmt -d -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh
+    shfmt -d -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh docs/readme-demo.sh
 
 # Run the bats tests
 test:
@@ -30,5 +31,10 @@ bench *args:
 playground *args:
     @playground/setup.sh "$@"
 
-# Everything CI runs: lint, fmt-check and test
-ci: lint fmt-check test
+# Check the README's example against real output; --write updates it
+[positional-arguments]
+readme-demo *args:
+    @docs/readme-demo.sh "$@"
+
+# Everything CI runs: lint, fmt-check, test and readme-demo
+ci: lint fmt-check test readme-demo

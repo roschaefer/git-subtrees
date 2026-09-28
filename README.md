@@ -1,49 +1,8 @@
 # git-subtrees
 
-Keep several `git subtree` folders of a monorepo in sync with their own
-repositories: publish a package, mirror a library, or keep a vendored copy
-up to date. You don't need a config file.
-
-A monorepo with three subtrees: `ui` changed upstream, `api` changed
-locally, `lib` is in sync.
-
-    $ git remote
-    packages/api
-    packages/ui
-    vendor/lib
-
-    $ git subtrees fetch
-    ok   packages/api fetched
-    ok   packages/ui fetched (main moved 43833a7..213f41d)
-    ok   vendor/lib fetched
-
-    $ git subtrees status
-    ok   packages/api -> https://github.com/acme/api.git (push)
-     README.md | 1 +
-     1 file changed, 1 insertion(+)
-    ok   packages/ui -> https://github.com/acme/ui.git (pull)
-     README.md | 1 +
-     1 file changed, 1 insertion(+)
-    ok   vendor/lib -> https://github.com/acme/lib.git (up to date)
-
-    $ git subtrees pull
-    ok   packages/api fetched
-    ok   packages/api: nothing to pull
-    ok   packages/ui fetched
-    Merge made by the 'ort' strategy.
-     packages/ui/README.md | 1 +
-     1 file changed, 1 insertion(+)
-    ok   packages/ui: pulled
-    ok   vendor/lib fetched
-    ok   vendor/lib: nothing to pull
-
-    $ git subtrees push
-    git push using:  packages/api main
-    To https://github.com/acme/api.git
-       3c240f1..9edd9c8  9edd9c8060a7db4ac6668c4dd328eeb04fc27d45 -> main
-    ok   packages/api: pushed
-    ok   packages/ui: nothing to push
-    ok   vendor/lib: nothing to push
+Manage multiple git subtrees in a monorepo: keep each folder in sync with
+its own repository, to publish a package, mirror a library, or keep a
+vendored copy up to date. You don't need a config file.
 
 ## The contract
 
@@ -83,6 +42,53 @@ Other tools keep a config of their own, and most don't follow your branch:
 | [splitsh-lite](https://github.com/splitsh/lite) | One way only: it publishes read-only mirrors. |
 | [Josh](https://github.com/josh-project/josh) | The opposite model: the monorepo is authoritative, and people work in filtered views of it. |
 | [Copybara](https://github.com/google/copybara) | One repository is the source of truth. Syncing back needs a second, reverse workflow. |
+
+## Example
+
+A monorepo with three subtrees: `ui` changed upstream, `api` changed
+locally, `lib` is in sync.
+
+<!-- demo:start -->
+
+    $ git remote
+    packages/api
+    packages/ui
+    vendor/lib
+
+    $ git subtrees fetch
+    ok   packages/api fetched
+    ok   packages/ui fetched (main moved a5f54d9..c437e62)
+    ok   vendor/lib fetched
+
+    $ git subtrees status
+    ok   packages/api -> https://github.com/acme/api.git (push)
+     README.md | 1 +
+     1 file changed, 1 insertion(+)
+    ok   packages/ui -> https://github.com/acme/ui.git (pull)
+     README.md | 1 +
+     1 file changed, 1 insertion(+)
+    ok   vendor/lib -> https://github.com/acme/lib.git (up to date)
+
+    $ git subtrees pull
+    ok   packages/api fetched
+    ok   packages/api: nothing to pull
+    ok   packages/ui fetched
+    Merge made by the 'ort' strategy.
+     packages/ui/README.md | 1 +
+     1 file changed, 1 insertion(+)
+    ok   packages/ui: pulled
+    ok   vendor/lib fetched
+    ok   vendor/lib: nothing to pull
+
+    $ git subtrees push
+    git push using:  packages/api main
+    To https://github.com/acme/api.git
+       71ba43f..3279be9  3279be9b9bd94fad1d852f9abe19968eee93607e -> main
+    ok   packages/api: pushed
+    ok   packages/ui: nothing to push
+    ok   vendor/lib: nothing to push
+
+<!-- demo:end -->
 
 ## Commands
 
