@@ -42,6 +42,7 @@
             cp -R git-subtrees lib $out/share/git-subtrees/
             makeWrapper $out/share/git-subtrees/git-subtrees $out/bin/git-subtrees \
               --prefix PATH : ${lib.makeBinPath [ pkgs.git pkgs.coreutils pkgs.gnused pkgs.gnugrep ]}
+            install -Dm644 LICENSE $out/share/licenses/git-subtrees/LICENSE
             installShellCompletion --cmd git-subtrees \
               --bash completions/git-subtrees.bash \
               --zsh completions/git-subtrees.zsh \
@@ -92,6 +93,15 @@
           grep -q pull status.txt
           git subtrees pull
           grep -q two vendor/a/file.txt
+
+          # bash: git's completion loads ours on demand through
+          # bash-completion, from the package's share/.
+          XDG_DATA_DIRS=${git-subtrees}/share ${pkgs.bashInteractive}/bin/bash --norc -i -c '
+            source ${pkgs.bash-completion}/share/bash-completion/bash_completion
+            source ${pkgs.git}/share/bash-completion/completions/git
+            __git_complete_command subtrees
+            declare -F _git_subtrees
+          '
           touch $out
         '';
 
