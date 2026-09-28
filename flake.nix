@@ -90,7 +90,7 @@
 
           git subtrees fetch
           git subtrees status | tee status.txt
-          grep -q pull status.txt
+          grep -qF "(pull)" status.txt
           git subtrees pull
           grep -q two vendor/a/file.txt
 
