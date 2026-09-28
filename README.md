@@ -4,6 +4,47 @@ Keep several `git subtree` folders of a monorepo in sync with their own
 repositories: publish a package, mirror a library, or keep a vendored copy
 up to date. You don't need a config file.
 
+A monorepo with three subtrees: `ui` changed upstream, `api` changed
+locally, `lib` is in sync.
+
+    $ git remote
+    packages/api
+    packages/ui
+    vendor/lib
+
+    $ git subtrees fetch
+    ok   packages/api fetched
+    ok   packages/ui fetched (main moved 43833a7..213f41d)
+    ok   vendor/lib fetched
+
+    $ git subtrees status
+    ok   packages/api -> https://github.com/acme/api.git (push)
+     README.md | 1 +
+     1 file changed, 1 insertion(+)
+    ok   packages/ui -> https://github.com/acme/ui.git (pull)
+     README.md | 1 +
+     1 file changed, 1 insertion(+)
+    ok   vendor/lib -> https://github.com/acme/lib.git (up to date)
+
+    $ git subtrees pull
+    ok   packages/api fetched
+    ok   packages/api: nothing to pull
+    ok   packages/ui fetched
+    Merge made by the 'ort' strategy.
+     packages/ui/README.md | 1 +
+     1 file changed, 1 insertion(+)
+    ok   packages/ui: pulled
+    ok   vendor/lib fetched
+    ok   vendor/lib: nothing to pull
+
+    $ git subtrees push
+    git push using:  packages/api main
+    To https://github.com/acme/api.git
+       3c240f1..9edd9c8  9edd9c8060a7db4ac6668c4dd328eeb04fc27d45 -> main
+    ok   packages/api: pushed
+    ok   packages/ui: nothing to push
+    ok   vendor/lib: nothing to push
+
 ## The contract
 
 A subtree is any git remote whose name is the path of a folder in your
