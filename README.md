@@ -45,7 +45,7 @@ Other tools keep a config of their own, and most don't follow your branch:
 
 ## Example
 
-[A walkthrough of every command](playground/README.md) shows what each one
+[A walkthrough of every command](walkthrough/README.md) shows what each one
 prints, on a throwaway monorepo whose subtree remotes live on the same
 machine. To follow along, run `just playground` in a clone of this
 repository.

@@ -1,4 +1,4 @@
-# Playground
+# Walkthrough
 
 `just playground` builds a throwaway monorepo in a temporary directory and
 opens a shell in it. This page walks through every command there, in

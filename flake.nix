@@ -58,7 +58,7 @@
             platforms = lib.platforms.unix;
           };
         };
-        # Runs the playground walkthroughs (`just docs-check`). Not in
+        # Runs the walkthroughs (`just docs-check`). Not in
         # nixpkgs yet, so this uses the upstream release binaries.
         scrut =
           let
@@ -148,7 +148,7 @@
 
           shellHook = ''
             repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-            export PATH="$repo_root:$repo_root/playground:$PATH"
+            export PATH="$repo_root:$repo_root/walkthrough:$PATH"
           '';
         };
       });

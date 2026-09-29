@@ -10,7 +10,7 @@ no_shell=0
 
 usage() {
   cat <<'EOF'
-usage: playground/setup.sh [--dir <path>] [--no-shell]
+usage: walkthrough/setup.sh [--dir <path>] [--no-shell]
 
 Builds a scratch monorepo plus fixture bare "upstream" repos for manually
 running git-subtrees commands against realistic state. When run
@@ -120,7 +120,7 @@ if [[ $no_shell -eq 0 && -t 0 && -t 1 ]]; then
 
 === playground ready: $mono_dir ===
 
-Follow playground/README.md from here, or start with:
+Follow walkthrough/README.md from here, or start with:
   git subtrees status
   git subtrees init vendor/pkg-b "\$PLAYGROUND/upstream/pkg-b.git"
   simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
@@ -142,7 +142,7 @@ $mono_dir
   cd $mono_dir
   export PLAYGROUND=$dir
 
-Follow playground/README.md from here, or start with:
+Follow walkthrough/README.md from here, or start with:
   git subtrees status
   git subtrees init vendor/pkg-b "\$PLAYGROUND/upstream/pkg-b.git"
   simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
