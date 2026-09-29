@@ -51,6 +51,7 @@ if [[ -z "$dir" ]]; then
 fi
 
 mkdir -p "$dir"
+dir="$(cd "$dir" && pwd)"
 upstream_dir="$dir/upstream"
 mono_dir="$dir/monorepo"
 mkdir -p "$upstream_dir"
@@ -119,23 +120,16 @@ if [[ $no_shell -eq 0 && -t 0 && -t 1 ]]; then
 
 === playground ready: $mono_dir ===
 
-Try:
+Follow playground/README.md from here, or start with:
   git subtrees status
-  git subtrees init vendor/pkg-b $upstream_dir/pkg-b.git
-  git subtrees fetch
-  git subtrees pull
-  simulate-remote-change vendor/pkg-a   # simulate more upstream activity
-  git subtrees status
-  git subtrees pull
-  echo "local edit" >> vendor/pkg-a/file.txt && git add vendor/pkg-a && git commit -m "local edit"
-  git subtrees push
-  git subtrees status
+  git subtrees init vendor/pkg-b "\$PLAYGROUND/upstream/pkg-b.git"
+  simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
 
 Dropping you into a shell there now -- 'exit' to leave it.
 EOF
   print_reminder
   cd "$mono_dir"
-  exec "${SHELL:-bash}"
+  PLAYGROUND="$dir" exec "${SHELL:-bash}"
 fi
 
 # Non-interactive (piped, scripted, or --no-shell): print the path instead
@@ -146,18 +140,12 @@ cat <<EOF
 $mono_dir
 
   cd $mono_dir
+  export PLAYGROUND=$dir
 
-Try:
+Follow playground/README.md from here, or start with:
   git subtrees status
-  git subtrees init vendor/pkg-b $upstream_dir/pkg-b.git
-  git subtrees fetch
-  git subtrees pull
-  simulate-remote-change vendor/pkg-a   # simulate more upstream activity
-  git subtrees status
-  git subtrees pull
-  echo "local edit" >> vendor/pkg-a/file.txt && git add vendor/pkg-a && git commit -m "local edit"
-  git subtrees push
-  git subtrees status
+  git subtrees init vendor/pkg-b "\$PLAYGROUND/upstream/pkg-b.git"
+  simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
 EOF
 
 print_reminder

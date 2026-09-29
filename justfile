@@ -7,15 +7,15 @@ lint:
     shellcheck playground/setup.sh playground/simulate-remote-change
     shellcheck completions/git-subtrees.bash
     shellcheck bench/setup.sh bench/run.sh
-    shellcheck docs/readme-demo-setup.sh
+    shellcheck playground/scrut-setup.sh
 
 # Format with shfmt
 fmt:
-    shfmt -w -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh docs/readme-demo-setup.sh
+    shfmt -w -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh playground/scrut-setup.sh
 
 # Check formatting with shfmt
 fmt-check:
-    shfmt -d -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh docs/readme-demo-setup.sh
+    shfmt -d -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh playground/setup.sh playground/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh playground/scrut-setup.sh
 
 # Run the bats tests
 test:
@@ -31,15 +31,15 @@ bench *args:
 playground *args:
     @playground/setup.sh "$@"
 
-# Check the README's example against real output; --write updates it
-readme-demo flag="":
+# Check the playground walkthroughs against real output; --write updates them
+docs-check flag="":
     @if [[ "{{flag}}" == --write ]]; then \
-      scrut update --replace --assume-yes README.md; \
+      scrut update --replace --assume-yes playground; \
     elif [[ -n "{{flag}}" ]]; then \
-      echo "usage: just readme-demo [--write]" >&2; exit 1; \
-    elif ! scrut test README.md; then \
-      echo "The README's example doesn't match real output. If only the output changed, run 'just readme-demo --write'." >&2; exit 1; \
+      echo "usage: just docs-check [--write]" >&2; exit 1; \
+    elif ! scrut test playground; then \
+      echo "The playground walkthroughs don't match real output. If only the output changed, run 'just docs-check --write'." >&2; exit 1; \
     fi
 
-# Everything CI runs: lint, fmt-check, test and readme-demo
-ci: lint fmt-check test readme-demo
+# Everything CI runs: lint, fmt-check, test and docs-check
+ci: lint fmt-check test docs-check

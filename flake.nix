@@ -58,7 +58,7 @@
             platforms = lib.platforms.unix;
           };
         };
-        # Runs the README's example session (`just readme-demo`). Not in
+        # Runs the playground walkthroughs (`just docs-check`). Not in
         # nixpkgs yet, so this uses the upstream release binaries.
         scrut =
           let
