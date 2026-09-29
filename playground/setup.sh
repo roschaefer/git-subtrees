@@ -72,14 +72,14 @@ seed_bare_repo() {
 }
 
 echo "=== building fixture upstream repos ==="
-git init -q --bare "$upstream_dir/pkg-a.git"
+git init -q --bare --initial-branch=main "$upstream_dir/pkg-a.git"
 seed_bare_repo "$upstream_dir/pkg-a.git" "pkg-a: seed"
 
-git init -q --bare "$upstream_dir/pkg-b.git"
+git init -q --bare --initial-branch=main "$upstream_dir/pkg-b.git"
 seed_bare_repo "$upstream_dir/pkg-b.git" "pkg-b: seed"
 
 echo "=== building monorepo ==="
-git init -q "$mono_dir"
+git init -q --initial-branch=main "$mono_dir"
 (
   cd "$mono_dir"
   git config user.name "Playground"
