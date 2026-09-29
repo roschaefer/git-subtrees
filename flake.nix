@@ -140,6 +140,8 @@
             pkgs.bashInteractive
             pkgs.just
             pkgs.hyperfine
+            # Renders the walkthrough chapters in the walkthrough shell.
+            pkgs.glow
             scrut
             # Only for test/completions.bats: the zsh and fish completions.
             pkgs.zsh

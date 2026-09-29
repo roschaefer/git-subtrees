@@ -108,6 +108,20 @@ git init -q --initial-branch=main "$mono_dir"
 seed_bare_repo "$upstream_dir/pkg-a.git" "pkg-a: a second commit, after connecting"
 git -C "$mono_dir" fetch -q vendor/pkg-a
 
+# Commands that open each chapter of the walkthrough, rendered by glow
+# (in `nix develop`) or as plain Markdown in less.
+print_chapters() {
+  local docs reader=less chapter
+  docs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if command -v glow >/dev/null; then
+    reader="glow -p"
+  fi
+  echo "Read the walkthrough alongside, one chapter at a time:"
+  for chapter in README feature-branches diverged; do
+    printf '  %s %q\n' "$reader" "$docs/$chapter.md"
+  done
+}
+
 print_reminder() {
   if [[ $dir_given -eq 0 ]]; then
     echo
@@ -120,7 +134,9 @@ if [[ $no_shell -eq 0 && -t 0 && -t 1 ]]; then
 
 === walkthrough ready: $mono_dir ===
 
-Follow walkthrough/README.md from here, or start with:
+$(print_chapters)
+
+Or start with:
   git subtrees status
   git subtrees init vendor/pkg-b "\$WALKTHROUGH/upstream/pkg-b.git"
   simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
@@ -142,7 +158,9 @@ $mono_dir
   cd $(printf '%q' "$mono_dir")
   export WALKTHROUGH=$(printf '%q' "$dir")
 
-Follow walkthrough/README.md from here, or start with:
+$(print_chapters)
+
+Or start with:
   git subtrees status
   git subtrees init vendor/pkg-b "\$WALKTHROUGH/upstream/pkg-b.git"
   simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
