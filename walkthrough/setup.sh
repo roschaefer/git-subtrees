@@ -139,8 +139,8 @@ cat <<EOF
 === playground ready ===
 $mono_dir
 
-  cd $mono_dir
-  export PLAYGROUND=$dir
+  cd $(printf '%q' "$mono_dir")
+  export PLAYGROUND=$(printf '%q' "$dir")
 
 Follow walkthrough/README.md from here, or start with:
   git subtrees status
