@@ -85,6 +85,14 @@ session() {
   done | sed -E "s#\r\$##; s#.*\r##; s#$tmp/up/([a-z]+)\.git#https://github.com/acme/\1.git#g; s#^#    #; s#^ +\$##"
 }
 
+# Without both markers, the block would be silently left alone.
+for marker in '<!-- demo:start -->' '<!-- demo:end -->'; do
+  if [[ "$(grep -cxF -- "$marker" "$readme" || true)" != 1 ]]; then
+    echo "README.md needs exactly one line '$marker'" >&2
+    exit 1
+  fi
+done
+
 build_scenario
 block="$(session)"
 
