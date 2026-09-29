@@ -61,13 +61,13 @@ locally, `lib` is in sync.
     ok   vendor/lib fetched
 
     $ git subtrees status
-    ok   packages/api -> https://github.com/acme/api.git (push)
+    ok   packages/api -> https://example.com/api.git (push)
      README.md | 1 +
      1 file changed, 1 insertion(+)
-    ok   packages/ui -> https://github.com/acme/ui.git (pull)
+    ok   packages/ui -> https://example.com/ui.git (pull)
      README.md | 1 +
      1 file changed, 1 insertion(+)
-    ok   vendor/lib -> https://github.com/acme/lib.git (up to date)
+    ok   vendor/lib -> https://example.com/lib.git (up to date)
 
     $ git subtrees pull
     ok   packages/api fetched
@@ -82,7 +82,7 @@ locally, `lib` is in sync.
 
     $ git subtrees push
     git push using:  packages/api main
-    To https://github.com/acme/api.git
+    To https://example.com/api.git
        71ba43f..3279be9  3279be9b9bd94fad1d852f9abe19968eee93607e -> main
     ok   packages/api: pushed
     ok   packages/ui: nothing to push

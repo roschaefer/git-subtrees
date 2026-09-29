@@ -13,7 +13,7 @@ push with this checkout's git-subtrees, and compares the output with the
 block between the demo markers in README.md.
 
 Author, committer and dates are fixed, so commit hashes are the same on
-every run. Scratch paths are shown as https://github.com/acme/<name>.git.
+every run. Scratch paths are shown as https://example.com/<name>.git.
 
   --write   replace the README block instead of comparing
 EOF
@@ -82,7 +82,7 @@ session() {
     [[ "$cmd" == "git remote" ]] || echo
     echo "\$ $cmd"
     $cmd 2>&1
-  done | sed -E "s#\r\$##; s#.*\r##; s#$tmp/up/([a-z]+)\.git#https://github.com/acme/\1.git#g; s#^#    #; s#^ +\$##"
+  done | sed -E "s#\r\$##; s#.*\r##; s#$tmp/up/([a-z]+)\.git#https://example.com/\1.git#g; s#^#    #; s#^ +\$##"
 }
 
 # Without both markers, the block would be silently left alone.
