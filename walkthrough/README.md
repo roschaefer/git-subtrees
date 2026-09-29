@@ -1,6 +1,6 @@
 # Walkthrough
 
-`just playground` builds a throwaway monorepo in a temporary directory and
+`just walkthrough` builds a throwaway monorepo in a temporary directory and
 opens a shell in it. This page walks through every command there, in
 order, with the output each one prints. CI runs this page with
 [scrut](https://facebookincubator.github.io/scrut/), so the output is what
@@ -8,11 +8,11 @@ the current version prints (`just docs-check`).
 
 What you get:
 
-- `$PLAYGROUND/monorepo`: the monorepo, on `main`. You start here.
-- `$PLAYGROUND/upstream/pkg-a.git` and `pkg-b.git`: bare repositories on
-  the same machine that stand in for the subtrees' remotes. The playground
-  shell exports `$PLAYGROUND`, so you can paste the commands below as they
-  are. Output shows the path as `$PLAYGROUND` too.
+- `$WALKTHROUGH/monorepo`: the monorepo, on `main`. You start here.
+- `$WALKTHROUGH/upstream/pkg-a.git` and `pkg-b.git`: bare repositories on
+  the same machine that stand in for the subtrees' remotes. The walkthrough
+  shell exports `$WALKTHROUGH`, so you can paste the commands below as they
+  are. Output shows the path as `$WALKTHROUGH` too.
 - `vendor/pkg-a`: a subtree whose remote has one commit the monorepo
   doesn't have yet. It's already fetched.
 - `vendor/pkg-b`: only a remote so far. Its folder doesn't exist yet.
@@ -22,14 +22,14 @@ What you get:
 `simulate-remote-change <path> [message]` pushes a commit to a subtree's
 remote, as if someone else had.
 
-More walkthroughs, each starting from a fresh playground:
+More walkthroughs, each starting from a fresh sandbox:
 
 - [Feature branches](feature-branches.md): the remote branch follows your
   branch, and `push` creates it only where a subtree changed.
 - [Diverged history](diverged.md): both sides changed the same line, and
   you resolve the conflict.
 
-<!-- Builds a fresh playground; see `just docs-check`.
+<!-- Builds a fresh sandbox; see `just docs-check`.
 ```scrut {fail_fast: true, output_stream: combined}
 $ source "$TESTDIR/scrut-setup.sh"
 ```
@@ -45,7 +45,7 @@ differ. `status` doesn't fetch; it uses what was fetched last.
 $ git subtrees status
 ??   ghost -> (no mapping)
 ??   vendor/pkg-b -> (no mapping)
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (pull)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (pull)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -57,12 +57,12 @@ remote's content there. The remote already exists; `init` would add it
 otherwise.
 
 ```scrut
-$ git subtrees init vendor/pkg-b "$PLAYGROUND/upstream/pkg-b.git"
+$ git subtrees init vendor/pkg-b "$WALKTHROUGH/upstream/pkg-b.git"
 ===  vendor/pkg-b: fetching
 ok   vendor/pkg-b fetched
-===  vendor/pkg-b: adding subtree from $PLAYGROUND/upstream/pkg-b.git
+===  vendor/pkg-b: adding subtree from $WALKTHROUGH/upstream/pkg-b.git
 git fetch vendor/pkg-b main
-From $PLAYGROUND/upstream/pkg-b
+From $WALKTHROUGH/upstream/pkg-b
  * branch            main       -> FETCH_HEAD
 Added dir 'vendor/pkg-b'
 ok   vendor/pkg-b: added
@@ -83,7 +83,7 @@ ok   vendor/pkg-b: pushed a new commit upstream ('pkg-b: add a feature')
 ```scrut
 $ git subtrees fetch
 ok   vendor/pkg-a fetched
-ok   vendor/pkg-b fetched (main moved ceb784c..9d1c6aa)
+ok   vendor/pkg-b fetched (main moved 9b3cb02..b937c4f)
 ```
 
 ## merge
@@ -127,7 +127,7 @@ $ echo "a local fix" >>vendor/pkg-a/file.txt && git commit -qam "pkg-a: a local 
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (push)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (push)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -156,8 +156,8 @@ pushes it to the branch named like yours.
 ```scrut
 $ git subtrees push
 git push using:  vendor/pkg-a main
-To $PLAYGROUND/upstream/pkg-a.git
-   57a78eb..f170776  f1707763740dac634368f95f66cbd0bdf84d24e7 -> main
+To $WALKTHROUGH/upstream/pkg-a.git
+   2db2a00..3549b62  3549b6217763c17429b62d22c3b945b83641a14c -> main
 ok   vendor/pkg-a: pushed
 ok   vendor/pkg-b: nothing to push
 ```
@@ -165,8 +165,8 @@ ok   vendor/pkg-b: nothing to push
 ```scrut
 $ git subtrees status
 ??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (up to date)
-ok   vendor/pkg-b -> $PLAYGROUND/upstream/pkg-b.git (up to date)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (up to date)
+ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (up to date)
 ```
 
 ## prune
@@ -175,7 +175,7 @@ A branch appears on `pkg-a`'s remote and gets fetched, then someone
 deletes it there. Its remote-tracking ref stays behind.
 
 ```scrut
-$ git -C "$PLAYGROUND/upstream/pkg-a.git" branch release-1 main
+$ git -C "$WALKTHROUGH/upstream/pkg-a.git" branch release-1 main
 ```
 
 ```scrut
@@ -184,8 +184,8 @@ ok   vendor/pkg-a fetched
 ```
 
 ```scrut
-$ git -C "$PLAYGROUND/upstream/pkg-a.git" branch -D release-1
-Deleted branch release-1 (was f170776).
+$ git -C "$WALKTHROUGH/upstream/pkg-a.git" branch -D release-1
+Deleted branch release-1 (was 3549b62).
 ```
 
 ```scrut
@@ -203,13 +203,13 @@ only lists them.
 ```scrut
 $ git subtrees prune --dry-run
 Pruning vendor/pkg-a
-URL: $PLAYGROUND/upstream/pkg-a.git
+URL: $WALKTHROUGH/upstream/pkg-a.git
  * [would prune] vendor/pkg-a/release-1
 ```
 
 ```scrut
 $ git subtrees prune
 Pruning vendor/pkg-a
-URL: $PLAYGROUND/upstream/pkg-a.git
+URL: $WALKTHROUGH/upstream/pkg-a.git
  * [pruned] vendor/pkg-a/release-1
 ```

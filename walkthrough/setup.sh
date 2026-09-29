@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$dir" ]]; then
-  dir="$(mktemp -d "${TMPDIR:-/tmp}/git-subtrees-playground.XXXXXX")"
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/git-subtrees-walkthrough.XXXXXX")"
 fi
 
 mkdir -p "$dir"
@@ -62,8 +62,8 @@ seed_bare_repo() {
   git clone -q "$repo" "$tmp" 2>/dev/null
   (
     cd "$tmp"
-    git config user.name "Playground"
-    git config user.email "playground@example.com"
+    git config user.name "Walkthrough"
+    git config user.email "walkthrough@example.com"
     echo "$msg" >>file.txt
     git add file.txt
     git commit -q -m "$msg"
@@ -83,8 +83,8 @@ echo "=== building monorepo ==="
 git init -q --initial-branch=main "$mono_dir"
 (
   cd "$mono_dir"
-  git config user.name "Playground"
-  git config user.email "playground@example.com"
+  git config user.name "Walkthrough"
+  git config user.email "walkthrough@example.com"
   git commit -q --allow-empty -m "initial commit"
 
   git remote add vendor/pkg-a "$upstream_dir/pkg-a.git"
@@ -104,7 +104,7 @@ git init -q --initial-branch=main "$mono_dir"
 # 'git subtrees status'/'pull' show a genuine "pull available" state right
 # away rather than everything starting out already in sync. status never
 # fetches on its own, so fetch once here too -- otherwise the freshly
-# built playground would still report "up to date" until the user fetches.
+# built sandbox would still report "up to date" until the user fetches.
 seed_bare_repo "$upstream_dir/pkg-a.git" "pkg-a: a second commit, after connecting"
 git -C "$mono_dir" fetch -q vendor/pkg-a
 
@@ -118,33 +118,33 @@ print_reminder() {
 if [[ $no_shell -eq 0 && -t 0 && -t 1 ]]; then
   cat <<EOF
 
-=== playground ready: $mono_dir ===
+=== walkthrough ready: $mono_dir ===
 
 Follow walkthrough/README.md from here, or start with:
   git subtrees status
-  git subtrees init vendor/pkg-b "\$PLAYGROUND/upstream/pkg-b.git"
+  git subtrees init vendor/pkg-b "\$WALKTHROUGH/upstream/pkg-b.git"
   simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
 
 Dropping you into a shell there now -- 'exit' to leave it.
 EOF
   print_reminder
   cd "$mono_dir"
-  PLAYGROUND="$dir" exec "${SHELL:-bash}"
+  WALKTHROUGH="$dir" exec "${SHELL:-bash}"
 fi
 
 # Non-interactive (piped, scripted, or --no-shell): print the path instead
 # of exec'ing into it, so the caller can still find and use the sandbox.
 cat <<EOF
 
-=== playground ready ===
+=== walkthrough ready ===
 $mono_dir
 
   cd $(printf '%q' "$mono_dir")
-  export PLAYGROUND=$(printf '%q' "$dir")
+  export WALKTHROUGH=$(printf '%q' "$dir")
 
 Follow walkthrough/README.md from here, or start with:
   git subtrees status
-  git subtrees init vendor/pkg-b "\$PLAYGROUND/upstream/pkg-b.git"
+  git subtrees init vendor/pkg-b "\$WALKTHROUGH/upstream/pkg-b.git"
   simulate-remote-change vendor/pkg-a   # push a commit upstream, as if someone else had
 EOF
 

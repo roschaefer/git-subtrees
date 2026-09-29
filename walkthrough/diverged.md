@@ -1,10 +1,10 @@
 # Diverged history
 
 A subtree has diverged when both the monorepo and the remote changed it
-since the last sync. This walkthrough in the [playground](README.md) makes
+since the last sync. This walkthrough, in the [sandbox](README.md), makes
 both sides change the same line, then resolves the conflict.
 
-<!-- Builds a fresh playground; see `just docs-check`.
+<!-- Builds a fresh sandbox; see `just docs-check`.
 ```scrut {fail_fast: true, output_stream: combined}
 $ source "$TESTDIR/scrut-setup.sh"
 ```
@@ -40,12 +40,12 @@ Once fetched, `status` reports the subtree as `diverged`:
 
 ```scrut
 $ git subtrees fetch
-ok   vendor/pkg-a fetched (main moved 57a78eb..9f14d0d)
+ok   vendor/pkg-a fetched (main moved 2db2a00..96a8153)
 ```
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (diverged)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (diverged)
  file.txt | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 ```
@@ -57,9 +57,9 @@ The remote refuses a push that would drop its commit:
 ```scrut
 $ git subtrees push
 git push using:  vendor/pkg-a main
-To $PLAYGROUND/upstream/pkg-a.git
- ! [rejected]        f1707763740dac634368f95f66cbd0bdf84d24e7 -> main (non-fast-forward)
-error: failed to push some refs to '$PLAYGROUND/upstream/pkg-a.git'
+To $WALKTHROUGH/upstream/pkg-a.git
+ ! [rejected]        3549b6217763c17429b62d22c3b945b83641a14c -> main (non-fast-forward)
+error: failed to push some refs to '$WALKTHROUGH/upstream/pkg-a.git'
 hint: Updates were rejected because the tip of your current branch is behind
 hint: its remote counterpart. If you want to integrate the remote changes,
 hint: use 'git pull' before pushing again.
@@ -91,7 +91,7 @@ pkg-a: a second commit, after connecting
 a local fix
 =======
 pkg-a: an upstream fix
->>>>>>> ed1183628db303e82765d92df3d655f05ba3b48c
+>>>>>>> 19a53603156c8f97afb99c1ab336081c0481fc7c
 ```
 
 ## Resolve and push
@@ -109,7 +109,7 @@ $ cat >vendor/pkg-a/file.txt <<'EOF'
 
 ```scrut
 $ git add vendor/pkg-a/file.txt && git commit --no-edit
-[main a759598] Merge commit 'ed1183628db303e82765d92df3d655f05ba3b48c'
+[main 12f4691] Merge commit '19a53603156c8f97afb99c1ab336081c0481fc7c'
 ```
 
 The merge commit contains the remote's side, so only the local fix is
@@ -117,7 +117,7 @@ left to push:
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (push)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (push)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -125,14 +125,14 @@ ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (push)
 ```scrut
 $ git subtrees push
 git push using:  vendor/pkg-a main
-To $PLAYGROUND/upstream/pkg-a.git
-   9f14d0d..eda413a  eda413a1e45e440ef23b5dfd4636a84831260a4f -> main
+To $WALKTHROUGH/upstream/pkg-a.git
+   96a8153..e6220d3  e6220d3065a466d29641e09a6dde23451bc734e2 -> main
 ok   vendor/pkg-a: pushed
 ```
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (up to date)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (up to date)
 ```
 
 If the two sides share no history at all, e.g. because the remote was

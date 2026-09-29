@@ -26,9 +26,9 @@ test:
 bench *args:
     @bench/run.sh "$@"
 
-# Open a shell in a throwaway monorepo to try commands by hand; see `just playground --help`
+# Open a shell in a throwaway monorepo to try commands by hand; see `just walkthrough --help`
 [positional-arguments]
-playground *args:
+walkthrough *args:
     @walkthrough/setup.sh "$@"
 
 # Check the walkthroughs against real output; --write updates them

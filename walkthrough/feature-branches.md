@@ -1,11 +1,11 @@
 # Feature branches
 
 Every subtree syncs with the remote branch named like your current branch.
-This walkthrough starts a feature branch in the [playground](README.md),
+This walkthrough starts a feature branch in the [sandbox](README.md),
 changes one subtree on it and pushes, and cleans up once the feature is
 merged on both sides.
 
-<!-- Builds a fresh playground; see `just docs-check`.
+<!-- Builds a fresh sandbox; see `just docs-check`.
 ```scrut {fail_fast: true, output_stream: combined}
 $ source "$TESTDIR/scrut-setup.sh"
 ```
@@ -15,7 +15,7 @@ First, bring both subtrees up to date, as at the end of the
 [main walkthrough](README.md#pull):
 
 ```scrut
-$ git subtrees init vendor/pkg-b "$PLAYGROUND/upstream/pkg-b.git" >/dev/null && git subtrees pull >/dev/null
+$ git subtrees init vendor/pkg-b "$WALKTHROUGH/upstream/pkg-b.git" >/dev/null && git subtrees pull >/dev/null
 ```
 
 ## A new branch
@@ -30,13 +30,13 @@ Switched to a new branch 'feature'
 ```scrut
 $ git subtrees status
 ??   ghost -> (no mapping)
-??   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
-??   vendor/pkg-b -> $PLAYGROUND/upstream/pkg-b.git (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
+??   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
+??   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
 ```
 
 To tell whether a subtree changed on `feature`, git-subtrees compares it
 with the branch `feature` was cut from. It looks for `--base`, then
-`origin/HEAD`, then `init.defaultBranch`. The playground's monorepo was
+`origin/HEAD`, then `init.defaultBranch`. The sandbox's monorepo was
 never cloned, so it has no `origin/HEAD`:
 
 ```scrut
@@ -46,8 +46,8 @@ $ git config init.defaultBranch main
 ```scrut
 $ git subtrees status
 ??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
-ok   vendor/pkg-b -> $PLAYGROUND/upstream/pkg-b.git (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (no 'feature' branch on remote; unchanged since 'main')
 ```
 
 ## Changing one subtree
@@ -59,8 +59,8 @@ $ echo "a new option" >>vendor/pkg-b/file.txt && git commit -qam "pkg-b: add an 
 ```scrut
 $ git subtrees status
 ??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
-ok   vendor/pkg-b -> $PLAYGROUND/upstream/pkg-b.git (no 'feature' branch on remote; changed since 'main' -- push would create it)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (no 'feature' branch on remote; changed since 'main' -- push would create it)
  vendor/pkg-b/file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -87,16 +87,16 @@ $ git subtrees push
 ok   vendor/pkg-a: nothing to push (remote has no 'feature' branch; unchanged since 'main')
 ??   vendor/pkg-b: remote has no 'feature' branch yet -- this push will create it (changed since 'main')
 git push using:  vendor/pkg-b feature
-To $PLAYGROUND/upstream/pkg-b.git
- * [new branch]      87e88751a1a4981edb75ca754431364c649bbc00 -> feature
+To $WALKTHROUGH/upstream/pkg-b.git
+ * [new branch]      502310105328ae670dd89312bacc0344a64febe6 -> feature
 ok   vendor/pkg-b: pushed
 ```
 
 ```scrut
 $ git subtrees status
 ??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
-ok   vendor/pkg-b -> $PLAYGROUND/upstream/pkg-b.git (up to date)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (up to date)
 ```
 
 ## After the merge
@@ -105,19 +105,19 @@ The feature gets merged on both sides: on `pkg-b`'s remote, which then
 deletes the branch, and in the monorepo.
 
 ```scrut
-$ git -C "$PLAYGROUND/upstream/pkg-b.git" push . feature:main
+$ git -C "$WALKTHROUGH/upstream/pkg-b.git" push . feature:main
 To .
-   ceb784c..87e8875  feature -> main
+   9b3cb02..5023101  feature -> main
 ```
 
 ```scrut
-$ git -C "$PLAYGROUND/upstream/pkg-b.git" branch -D feature
-Deleted branch feature (was 87e8875).
+$ git -C "$WALKTHROUGH/upstream/pkg-b.git" branch -D feature
+Deleted branch feature (was 5023101).
 ```
 
 ```scrut
 $ git switch -q main && git merge --ff-only feature
-Updating ef18234..1f18532
+Updating 928c613..7e6de95
 Fast-forward
  vendor/pkg-b/file.txt | 1 +
  1 file changed, 1 insertion(+)
@@ -130,20 +130,20 @@ merged, and `prune` removes the deleted branch's remote-tracking ref.
 $ git subtrees pull
 ok   vendor/pkg-a fetched
 ok   vendor/pkg-a: nothing to pull
-ok   vendor/pkg-b fetched (main moved ceb784c..87e8875)
+ok   vendor/pkg-b fetched (main moved 9b3cb02..5023101)
 ok   vendor/pkg-b: nothing to pull
 ```
 
 ```scrut
 $ git subtrees prune
 Pruning vendor/pkg-b
-URL: $PLAYGROUND/upstream/pkg-b.git
+URL: $WALKTHROUGH/upstream/pkg-b.git
  * [pruned] vendor/pkg-b/feature
 ```
 
 ```scrut
 $ git subtrees status
 ??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $PLAYGROUND/upstream/pkg-a.git (up to date)
-ok   vendor/pkg-b -> $PLAYGROUND/upstream/pkg-b.git (up to date)
+ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (up to date)
+ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (up to date)
 ```
