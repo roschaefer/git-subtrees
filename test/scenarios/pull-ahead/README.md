@@ -1,5 +1,11 @@
 # Scenario: pull-ahead
 
+<!-- Builds this scenario; see `just docs-check`.
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../scrut-setup.sh"
+```
+-->
+
 The remote gained a commit since the subtree was added; the monorepo hasn't touched
 the subtree path.
 
@@ -11,6 +17,33 @@ The scenario also fetches once during setup, so `refs/remotes/vendor/a/*`
 already reflects the remote's new commit (mirroring what a real `status`
 run needs, since `status` never fetches on its own).
 
-Expected `classify_subtree` result: `pull`.
+## Output
+
+```scrut
+$ git subtrees status
+ok   vendor/a -> $UPSTREAM (pull)
+ file.txt | 1 +
+ 1 file changed, 1 insertion(+)
+```
+
+There's nothing to push, so `diff` shows nothing:
+
+```scrut
+$ git subtrees diff
+```
+
+```scrut
+$ git subtrees pull
+ok   vendor/a fetched
+Merge made by the 'ort' strategy.
+ vendor/a/file.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ok   vendor/a: pulled
+```
+
+```scrut
+$ git subtrees status
+ok   vendor/a -> $UPSTREAM (up to date)
+```
 
 Built by `scenario_pull_ahead` in `setup.bash`.

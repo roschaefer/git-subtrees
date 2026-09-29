@@ -1,5 +1,11 @@
 # Scenario: init-on-feature-branch
 
+<!-- Builds this scenario; see `just docs-check`.
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../scrut-setup.sh"
+```
+-->
+
 You start using a remote on a feature branch, before the remote has that
 branch.
 
@@ -13,8 +19,41 @@ This matches `push`: the subtree now differs from the monorepo's `main`, so
 the first `git subtrees push` creates `feature` on the remote, on top of its
 `main`.
 
-Expected result: `vendor/a` contains `seed`; `classify_subtree "vendor/a"
-"feature"` is `missing-at-head` with `changes_vs_base` `yes`; `push`
-creates `feature` on the remote as a descendant of `main`.
+## Output
+
+```scrut
+$ git subtrees init vendor/a "$UPSTREAM"
+===  vendor/a: registering remote -> $UPSTREAM
+===  vendor/a: fetching
+ok   vendor/a fetched
+===  vendor/a: remote has no 'feature' branch yet -- using its 'main' branch; your first push creates 'feature'
+===  vendor/a: adding subtree from $UPSTREAM
+git fetch vendor/a main
+From $UPSTREAM
+ * branch            main       -> FETCH_HEAD
+Added dir 'vendor/a'
+ok   vendor/a: added
+```
+
+```scrut
+$ git subtrees status
+ok   vendor/a -> $UPSTREAM (no 'feature' branch on remote; changed since 'main' -- push would create it)
+ vendor/a/file.txt | 1 +
+ 1 file changed, 1 insertion(+)
+```
+
+```scrut
+$ git subtrees push
+??   vendor/a: remote has no 'feature' branch yet -- this push will create it (changed since 'main')
+git push using:  vendor/a feature
+To $UPSTREAM
+ * [new branch]      bde416459fbcc09c9b585f3b65a94cab3f68bfcd -> feature
+ok   vendor/a: pushed
+```
+
+```scrut
+$ git subtrees status
+ok   vendor/a -> $UPSTREAM (up to date)
+```
 
 Built by `scenario_init_on_feature_branch` in `setup.bash`.

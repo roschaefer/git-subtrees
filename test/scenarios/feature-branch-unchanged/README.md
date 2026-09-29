@@ -1,5 +1,11 @@
 # Scenario: feature-branch-unchanged
 
+<!-- Builds this scenario; see `just docs-check`.
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../scrut-setup.sh"
+```
+-->
+
 The monorepo is on a feature branch the subtree's remote has never heard
 of, and nothing under the subtree path has changed since the branch was
 cut from `main`.
@@ -8,8 +14,18 @@ cut from `main`.
   a new `feature` branch with no further commits.
 - **Remote**: only has `main`, at `seed`. No `feature` branch.
 
-Expected `classify_subtree "vendor/a" "feature"` result: `missing-at-head`.
-Expected `changes_vs_base "vendor/a" main` result: `no`. `push` must not
-create `feature` on the remote.
+## Output
+
+The scenario sets no base branch, so the commands pass `--base main`:
+
+```scrut
+$ git subtrees status --base main
+ok   vendor/a -> $UPSTREAM (no 'feature' branch on remote; unchanged since 'main')
+```
+
+```scrut
+$ git subtrees push --base main
+ok   vendor/a: nothing to push (remote has no 'feature' branch; unchanged since 'main')
+```
 
 Built by `scenario_feature_branch_unchanged` in `setup.bash`.

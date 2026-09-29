@@ -173,8 +173,10 @@ With [Nix](https://nixos.org/download/) and
     just walkthrough # try commands by hand in a throwaway monorepo
 
 Scenario fixtures for the tests are in `test/scenarios/`, each with a
-README. Pull requests out of draft get a benchmark against their base in
-the job summary of the Benchmark workflow.
+README that shows the tool's output in that state, checked like the
+walkthroughs by `just docs-check`. Pull requests out of draft get a
+benchmark against their base in the job summary of the Benchmark
+workflow.
 
 Releases come from [release-please](https://github.com/googleapis/release-please):
 it keeps a release PR open with the next version and changelog, built from
