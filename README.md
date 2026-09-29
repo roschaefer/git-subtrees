@@ -48,47 +48,59 @@ Other tools keep a config of their own, and most don't follow your branch:
 A monorepo with three subtrees: `ui` changed upstream, `api` changed
 locally, `lib` is in sync.
 
-<!-- demo:start -->
+<!-- Builds the scenario for the session below; see `just readme-demo`.
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/docs/readme-demo-setup.sh"
+```
+-->
 
-    $ git remote
-    packages/api
-    packages/ui
-    vendor/lib
+```scrut
+$ git remote
+packages/api
+packages/ui
+vendor/lib
+```
 
-    $ git subtrees fetch
-    ok   packages/api fetched
-    ok   packages/ui fetched (main moved a5f54d9..c437e62)
-    ok   vendor/lib fetched
+```scrut
+$ git subtrees fetch
+ok   packages/api fetched
+ok   packages/ui fetched (main moved a5f54d9..c437e62)
+ok   vendor/lib fetched
+```
 
-    $ git subtrees status
-    ok   packages/api -> https://example.com/api.git (push)
-     README.md | 1 +
-     1 file changed, 1 insertion(+)
-    ok   packages/ui -> https://example.com/ui.git (pull)
-     README.md | 1 +
-     1 file changed, 1 insertion(+)
-    ok   vendor/lib -> https://example.com/lib.git (up to date)
+```scrut
+$ git subtrees status
+ok   packages/api -> https://example.com/api.git (push)
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)
+ok   packages/ui -> https://example.com/ui.git (pull)
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)
+ok   vendor/lib -> https://example.com/lib.git (up to date)
+```
 
-    $ git subtrees pull
-    ok   packages/api fetched
-    ok   packages/api: nothing to pull
-    ok   packages/ui fetched
-    Merge made by the 'ort' strategy.
-     packages/ui/README.md | 1 +
-     1 file changed, 1 insertion(+)
-    ok   packages/ui: pulled
-    ok   vendor/lib fetched
-    ok   vendor/lib: nothing to pull
+```scrut
+$ git subtrees pull
+ok   packages/api fetched
+ok   packages/api: nothing to pull
+ok   packages/ui fetched
+Merge made by the 'ort' strategy.
+ packages/ui/README.md | 1 +
+ 1 file changed, 1 insertion(+)
+ok   packages/ui: pulled
+ok   vendor/lib fetched
+ok   vendor/lib: nothing to pull
+```
 
-    $ git subtrees push
-    git push using:  packages/api main
-    To https://example.com/api.git
-       71ba43f..3279be9  3279be9b9bd94fad1d852f9abe19968eee93607e -> main
-    ok   packages/api: pushed
-    ok   packages/ui: nothing to push
-    ok   vendor/lib: nothing to push
-
-<!-- demo:end -->
+```scrut
+$ git subtrees push
+git push using:  packages/api main
+To https://example.com/api.git
+   71ba43f..3279be9  3279be9b9bd94fad1d852f9abe19968eee93607e -> main
+ok   packages/api: pushed
+ok   packages/ui: nothing to push
+ok   vendor/lib: nothing to push
+```
 
 ## Commands
 
