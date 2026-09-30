@@ -1,4 +1,4 @@
-# Assumes lib/common.sh is already sourced.
+# Assumes lib/common.sh and lib/hook.sh are already sourced.
 
 usage_status() {
   cat <<'EOF'
@@ -118,4 +118,6 @@ cmd_status() {
   for path in "${paths[@]}"; do
     format_status_line "$path" "$branch" "$base"
   done
+
+  ((${#ALL_PATHS[@]} == 0)) || hint_pre_push_hook
 }

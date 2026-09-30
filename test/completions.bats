@@ -30,6 +30,13 @@ complete_words() {
   [ "$output" = "--version" ]
 }
 
+@test "completion: install-hook as a subcommand, taking no subtree path" {
+  run complete_words git-subtrees ins
+  [ "$output" = "install-hook" ]
+  run complete_words git-subtrees install-hook ""
+  [ "$output" = $'--print\n-h\n--help' ]
+}
+
 @test "completion: push completes subtree paths" {
   run complete_words git-subtrees push vend
   [ "$output" = "vendor/a" ]
@@ -166,6 +173,14 @@ fish_complete() {
   [[ "$output" == *"pull"* && "$output" == *"push"* ]]
 }
 
+@test "zsh completion: install-hook as a subcommand, taking no subtree path" {
+  require_shell zsh
+  run zsh_complete "git-subtrees ins"
+  [[ "$output" == *"install-hook"* ]]
+  run zsh_complete "git-subtrees install-hook vend"
+  [ -z "$output" ]
+}
+
 @test "zsh completion: --version at the top level, but no options before a -" {
   require_shell zsh
   run zsh_complete "git-subtrees --v"
@@ -206,6 +221,14 @@ fish_complete() {
   require_shell fish
   run fish_complete "git-subtrees pu"
   [[ "$output" == *"pull"* && "$output" == *"push"* ]]
+}
+
+@test "fish completion: install-hook as a subcommand, taking no subtree path" {
+  require_shell fish
+  run fish_complete "git-subtrees ins"
+  [ "$output" = "install-hook" ]
+  run fish_complete "git-subtrees install-hook vend"
+  [ -z "$output" ]
 }
 
 @test "fish completion: --version at the top level" {

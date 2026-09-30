@@ -70,6 +70,8 @@ load_lib() {
   # shellcheck disable=SC1091
   source "$lib_dir/common.sh"
   # shellcheck disable=SC1091
+  source "$lib_dir/hook.sh"
+  # shellcheck disable=SC1091
   source "$lib_dir/init.sh"
   # shellcheck disable=SC1091
   source "$lib_dir/fetch.sh"
