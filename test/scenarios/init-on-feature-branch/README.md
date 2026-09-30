@@ -15,10 +15,8 @@ the first `git subtrees push` creates `feature` on the remote, on top of its
 
 ## Output
 
-The output below is real. `just docs-check` builds this state with
-`scenario_init_on_feature_branch`,
-the function in [`setup.bash`](setup.bash) that the bats tests call too,
-and then runs each command.
+`scenario_init_on_feature_branch` in [`setup.bash`](setup.bash)
+builds this state. [How scenarios work](../README.md).
 
 <!--
 ```scrut {fail_fast: true, output_stream: combined}

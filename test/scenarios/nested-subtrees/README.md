@@ -35,10 +35,8 @@ Every command fails before doing anything and prints the ways to fix it.
 
 ## Output
 
-The output below is real. `just docs-check` builds this state with
-`scenario_nested_subtrees`,
-the function in [`setup.bash`](setup.bash) that the bats tests call too,
-and then runs each command.
+`scenario_nested_subtrees` in [`setup.bash`](setup.bash)
+builds this state. [How scenarios work](../README.md).
 
 <!--
 ```scrut {fail_fast: true, output_stream: combined}

@@ -19,10 +19,8 @@ the same branch:
 
 ## Output
 
-The output below is real. `just docs-check` builds this state with
-`scenario_shared_remote_url`,
-the function in [`setup.bash`](setup.bash) that the bats tests call too,
-and then runs each command.
+`scenario_shared_remote_url` in [`setup.bash`](setup.bash)
+builds this state. [How scenarios work](../README.md).
 
 <!--
 ```scrut {fail_fast: true, output_stream: combined}
