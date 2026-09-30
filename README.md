@@ -117,6 +117,8 @@ More scenarios:
   `init` on a branch the remote doesn't have yet.
 - [`init-unrelated-content`](test/scenarios/init-unrelated-content/README.md):
   `init` on a folder whose content has nothing to do with the remote.
+- [`init-without-commits`](test/scenarios/init-without-commits/README.md):
+  `init` in a brand-new monorepo that has no commits yet.
 - [`nested-subtrees`](test/scenarios/nested-subtrees/README.md): why one
   subtree inside another is refused.
 - [`shared-remote-url`](test/scenarios/shared-remote-url/README.md): two

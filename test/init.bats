@@ -4,6 +4,7 @@ setup() {
   load 'scenarios/init-unrelated-content/setup'
   load 'scenarios/init-on-feature-branch/setup'
   load 'scenarios/init-copied-content/setup'
+  load 'scenarios/init-without-commits/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -79,9 +80,7 @@ setup() {
 }
 
 @test "init: refuses a monorepo without commits, without registering a remote" {
-  make_bare_repo "$upstream"
-  seed_bare_repo "$upstream" "seed"
-  git init -q -b main "$monorepo"
+  scenario_init_without_commits "$monorepo" "$upstream"
   cd "$monorepo"
 
   run cmd_init "vendor/a" "$upstream"
@@ -91,6 +90,17 @@ setup() {
   [[ "$output" != *"working tree has modifications"* ]]
   run git remote get-url vendor/a
   [ "$status" -eq 2 ]
+}
+
+@test "init: adds the subtree once the monorepo has its first commit" {
+  scenario_init_without_commits "$monorepo" "$upstream"
+  cd "$monorepo"
+  git commit -q --allow-empty -m "initial commit"
+
+  run cmd_init "vendor/a" "$upstream"
+
+  [ "$status" -eq 0 ]
+  [ -f vendor/a/file.txt ]
 }
 
 @test "init: refuses when remote exists pointing elsewhere" {
