@@ -78,6 +78,21 @@ setup() {
   [ "$status" -eq 2 ]
 }
 
+@test "init: refuses a monorepo without commits, without registering a remote" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  git init -q -b main "$monorepo"
+  cd "$monorepo"
+
+  run cmd_init "vendor/a" "$upstream"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"branch 'main' has no commits yet -- create one and re-run: git commit --allow-empty -m 'initial commit'"* ]]
+  [[ "$output" != *"working tree has modifications"* ]]
+  run git remote get-url vendor/a
+  [ "$status" -eq 2 ]
+}
+
 @test "init: refuses when remote exists pointing elsewhere" {
   make_bare_repo "$upstream"
   seed_bare_repo "$upstream" "seed"

@@ -88,7 +88,10 @@ still empty), `init` only registers the remote. If `<path>` already has
 exactly the remote's content, e.g. copied in by hand, `init` records that
 as the last sync, so later pushes build on the remote's history. If it has
 content that isn't related to the remote, `init` stops and asks you to move
-the folder aside and merge it back by hand.
+the folder aside and merge it back by hand. The monorepo needs at least
+one commit: `git subtree add` merges into the current branch, so in a
+freshly created repository, run `git commit --allow-empty -m 'initial
+commit'` first.
 
 ## Sync states
 
