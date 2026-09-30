@@ -1,11 +1,5 @@
 # Scenario: init-on-feature-branch
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 You start using a remote on a feature branch, before the remote has that
 branch.
 
@@ -20,6 +14,17 @@ the first `git subtrees push` creates `feature` on the remote, on top of its
 `main`.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_init_on_feature_branch`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_init_on_feature_branch
+```
+-->
 
 ```scrut
 $ git subtrees init vendor/a "$UPSTREAM"
@@ -55,5 +60,3 @@ ok   vendor/a: pushed
 $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_init_on_feature_branch` in `setup.bash`.

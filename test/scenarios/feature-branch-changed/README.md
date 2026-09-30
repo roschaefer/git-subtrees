@@ -1,11 +1,5 @@
 # Scenario: feature-branch-changed
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 Like `feature-branch-unchanged`, but the subtree has local changes on the
 feature branch.
 
@@ -14,6 +8,17 @@ feature branch.
 - **Remote**: only has `main`, at `seed`. No `feature` branch.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_feature_branch_changed`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_feature_branch_changed
+```
+-->
 
 The scenario sets no base branch, so the commands pass `--base main`:
 
@@ -49,5 +54,3 @@ ok   vendor/a: pushed
 $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_feature_branch_changed` in `setup.bash`.

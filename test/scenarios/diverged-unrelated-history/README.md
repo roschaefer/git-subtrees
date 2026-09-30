@@ -1,11 +1,5 @@
 # Scenario: diverged-unrelated-history
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 Both sides moved since the subtree was added, but the remote's entire history was
 then replaced with something that shares no ancestry with what was last
 synced -- e.g. the upstream repo was rebuilt from scratch.
@@ -28,6 +22,17 @@ Both sequences were verified by hand against this exact scenario shape
 before being wired into `lib/common.sh`'s `print_unrelated_history_guidance`.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_diverged_unrelated_history`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_diverged_unrelated_history
+```
+-->
 
 ```scrut
 $ git subtrees status
@@ -54,5 +59,3 @@ ok   vendor/a fetched
 ```
 
 `push` refuses with the same message.
-
-Built by `scenario_diverged_unrelated_history` in `setup.bash`.

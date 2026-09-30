@@ -1,11 +1,5 @@
 # Scenario: init-copied-content
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 A folder that will become a subtree was copied in by hand: its content is
 exactly the remote's, but it was never added with `git subtree add`, so
 there is no sync point (no `git-subtree-dir:` trailer) in the history.
@@ -40,6 +34,17 @@ commit's `git-subtree-split:` trailer names the remote's `main`, and that a
 
 ## Output
 
+The output below is real. `just docs-check` builds this state with
+`scenario_init_copied_content`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_init_copied_content
+```
+-->
+
 ```scrut
 $ git subtrees init vendor/a "$UPSTREAM"
 ===  vendor/a: registering remote -> $UPSTREAM
@@ -67,5 +72,3 @@ $ git log --oneline --graph
 $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_init_copied_content` in `setup.bash`.

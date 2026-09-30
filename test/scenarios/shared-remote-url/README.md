@@ -1,11 +1,5 @@
 # Scenario: shared-remote-url
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 Two subtree remotes with different names but the same URL -- the same
 upstream repo checked out into two directories.
 
@@ -24,6 +18,17 @@ the same branch:
   nothing gets overwritten. Pull it, then push again.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_shared_remote_url`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_shared_remote_url
+```
+-->
 
 ```scrut
 $ git subtrees status
@@ -76,5 +81,3 @@ $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ok   vendor/b -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_shared_remote_url` in `setup.bash`.

@@ -1,11 +1,5 @@
 # Scenario: push-ahead
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 Local made a commit under the subtree path since it was added; the remote
 hasn't moved.
 
@@ -15,6 +9,17 @@ hasn't moved.
 - **Common ancestor**: yes -- the add point (`seed`).
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_push_ahead`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_push_ahead
+```
+-->
 
 ```scrut
 $ git subtrees status
@@ -47,5 +52,3 @@ ok   vendor/a: pushed
 $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_push_ahead` in `setup.bash`.

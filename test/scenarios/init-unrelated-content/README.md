@@ -1,11 +1,5 @@
 # Scenario: init-unrelated-content
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 A directory that will become a subtree already has content, and that
 content has nothing to do with the remote being added -- the "move it
 aside" case for `git subtrees init`.
@@ -18,6 +12,17 @@ aside" case for `git subtrees init`.
 
 ## Output
 
+The output below is real. `just docs-check` builds this state with
+`scenario_init_unrelated_content`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_init_unrelated_content
+```
+-->
+
 ```scrut
 $ git subtrees init vendor/a "$UPSTREAM"
 ===  vendor/a: registering remote -> $UPSTREAM
@@ -27,5 +32,3 @@ ok   vendor/a fetched
 !!   move it aside and re-run: mv vendor/a vendor/a.bak && git subtrees init vendor/a $UPSTREAM
 [1]
 ```
-
-Built by `scenario_init_unrelated_content` in `setup.bash`.

@@ -7,15 +7,15 @@ lint:
     shellcheck walkthrough/setup.sh walkthrough/simulate-remote-change
     shellcheck completions/git-subtrees.bash
     shellcheck bench/setup.sh bench/run.sh
-    shellcheck -x walkthrough/scrut-setup.sh test/scenarios/scrut-setup.sh
+    shellcheck -x walkthrough/scrut-setup.sh test/scenarios/readme-setup.sh
 
 # Format with shfmt
 fmt:
-    shfmt -w -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh walkthrough/setup.sh walkthrough/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh walkthrough/scrut-setup.sh test/scenarios/scrut-setup.sh
+    shfmt -w -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh walkthrough/setup.sh walkthrough/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh walkthrough/scrut-setup.sh test/scenarios/readme-setup.sh
 
 # Check formatting with shfmt
 fmt-check:
-    shfmt -d -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh walkthrough/setup.sh walkthrough/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh walkthrough/scrut-setup.sh test/scenarios/scrut-setup.sh
+    shfmt -d -i 2 -ci git-subtrees lib/*.sh docs/last-synced-commit/walkthrough.sh walkthrough/setup.sh walkthrough/simulate-remote-change completions/git-subtrees.bash bench/setup.sh bench/run.sh walkthrough/scrut-setup.sh test/scenarios/readme-setup.sh
 
 # Run the bats tests
 test:

@@ -1,11 +1,5 @@
 # Scenario: diverged-then-pulled
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 Both sides changed different files, then the remote's change was pulled in.
 The local change is still waiting to be pushed.
 
@@ -22,6 +16,17 @@ brought it in: the merge commit already contains `local.txt`, which would
 hide it from `push`.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_diverged_then_pulled`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_diverged_then_pulled
+```
+-->
 
 `status` and `diff` show only `local.txt`, and `push` sends it:
 
@@ -56,5 +61,3 @@ ok   vendor/a: pushed
 $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_diverged_then_pulled` in `setup.bash`.

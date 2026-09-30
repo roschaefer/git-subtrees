@@ -1,11 +1,5 @@
 # Scenario: diverged-common-ancestor
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 Both sides moved independently since the subtree was added, but they still
 share a real sync point: the add commit itself.
 
@@ -20,6 +14,17 @@ conflict resolved by editing the file and running plain `git commit`.
 Contrast with `diverged-unrelated-history`, where no such attempt is made.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_diverged_common_ancestor`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_diverged_common_ancestor
+```
+-->
 
 ```scrut
 $ git subtrees status
@@ -41,5 +46,3 @@ Automatic merge failed; fix conflicts and then commit the result.
 
 From here, resolve the conflict, `git commit` and push, as in the
 [diverged history walkthrough](../../../walkthrough/diverged.md).
-
-Built by `scenario_diverged_common_ancestor` in `setup.bash`.

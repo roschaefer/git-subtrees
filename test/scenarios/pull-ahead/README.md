@@ -1,11 +1,5 @@
 # Scenario: pull-ahead
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 The remote gained a commit since the subtree was added; the monorepo hasn't touched
 the subtree path.
 
@@ -18,6 +12,17 @@ already reflects the remote's new commit (mirroring what a real `status`
 run needs, since `status` never fetches on its own).
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_pull_ahead`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_pull_ahead
+```
+-->
 
 ```scrut
 $ git subtrees status
@@ -45,5 +50,3 @@ ok   vendor/a: pulled
 $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_pull_ahead` in `setup.bash`.

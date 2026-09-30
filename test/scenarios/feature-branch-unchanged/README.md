@@ -1,11 +1,5 @@
 # Scenario: feature-branch-unchanged
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 The monorepo is on a feature branch the subtree's remote has never heard
 of, and nothing under the subtree path has changed since the branch was
 cut from `main`.
@@ -15,6 +9,17 @@ cut from `main`.
 - **Remote**: only has `main`, at `seed`. No `feature` branch.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_feature_branch_unchanged`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_feature_branch_unchanged
+```
+-->
 
 The scenario sets no base branch, so the commands pass `--base main`:
 
@@ -27,5 +32,3 @@ ok   vendor/a -> $UPSTREAM (no 'feature' branch on remote; unchanged since 'main
 $ git subtrees push --base main
 ok   vendor/a: nothing to push (remote has no 'feature' branch; unchanged since 'main')
 ```
-
-Built by `scenario_feature_branch_unchanged` in `setup.bash`.

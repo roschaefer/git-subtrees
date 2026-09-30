@@ -1,11 +1,5 @@
 # Scenario: pushed-then-changed
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 The monorepo pushed a change, then changed the subtree again. The remote
 has nothing but that push.
 
@@ -23,6 +17,17 @@ ancestor of what `HEAD` would push, and a push fast-forwards the remote.
 `diverged`, or `pull` if the monorepo didn't change since its push.
 
 ## Output
+
+The output below is real. `just docs-check` builds this state with
+`scenario_pushed_then_changed`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_pushed_then_changed
+```
+-->
 
 ```scrut
 $ git subtrees status
@@ -43,5 +48,3 @@ ok   vendor/a: pushed
 $ git subtrees status
 ok   vendor/a -> $UPSTREAM (up to date)
 ```
-
-Built by `scenario_pushed_then_changed` in `setup.bash`.

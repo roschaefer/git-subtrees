@@ -1,11 +1,5 @@
 # Scenario: nested-subtrees
 
-<!-- Builds this scenario; see `just docs-check`.
-```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/../scrut-setup.sh"
-```
--->
-
 One subtree folder inside another: remotes `vendor/pkg` and
 `vendor/pkg/extra`, both matching existing folders.
 
@@ -41,6 +35,17 @@ Every command fails before doing anything and prints the ways to fix it.
 
 ## Output
 
+The output below is real. `just docs-check` builds this state with
+`scenario_nested_subtrees`,
+the function in [`setup.bash`](setup.bash) that the bats tests call too,
+and then runs each command.
+
+<!--
+```scrut {fail_fast: true, output_stream: combined}
+$ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_nested_subtrees
+```
+-->
+
 ```scrut
 $ git subtrees status
 !!   nested subtrees are not supported: 'vendor/pkg' and 'vendor/pkg/extra' overlap -- fix it with one of:
@@ -52,5 +57,3 @@ $ git subtrees status
 
 [1]
 ```
-
-Built by `scenario_nested_subtrees` in `setup.bash`.
