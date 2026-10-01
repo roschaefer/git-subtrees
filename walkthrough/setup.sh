@@ -89,7 +89,7 @@ git init -q --initial-branch=main "$mono_dir"
 
   git remote add vendor/pkg-a "$upstream_dir/pkg-a.git"
   # Push-protected, as 'git subtrees init' would leave it.
-  git remote set-url --push vendor/pkg-a "push with git subtrees push, not git push"
+  git remote set-url --push vendor/pkg-a "BLOCKED by git-subtrees -- push with => git subtrees push"
   git fetch -q vendor/pkg-a
   git subtree add -q --prefix=vendor/pkg-a vendor/pkg-a main --squash
 

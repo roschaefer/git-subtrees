@@ -13,27 +13,47 @@ that changes.
 A subtree remote is an ordinary Git remote. `git subtree push` sends it
 the output of `git subtree split`: a history with only the subtree's
 files. Any other push to it sends the monorepo's own commits, with **every
-folder** in them. That's a slip of the fingers, `git push vendor/a main`
-instead of `git push origin main`, but it doesn't have to be one:
+folder** in them.
 
-- With `push.autoSetupRemote` and no `origin`, a plain `git push` on a new
-  branch picks the only remote there is.
-- Once a branch's upstream is a subtree remote, every plain `git push`, an
-  IDE's "Sync" button, or a Git GUI's push goes there.
-- A reverse search for `push vendor/a` in your shell history finds
-  `git push vendor/a main` as well as `git subtree push ... vendor/a main`.
+Typing `git push vendor/a main` by mistake is the obvious way, but not the
+only one:
+
+- **`push.autoSetupRemote` on a repo whose only remote is a subtree
+  remote.** A plain `git push` on a new branch picks the only remote,
+  pushes the monorepo there and makes it the upstream. A monorepo without
+  `origin` (e.g. local-only, publishing parts of itself) is exactly the
+  setup where this happens. The output below shows it.
+- **Once a branch's upstream is a subtree remote**, every later plain
+  `git push`, the IDE's "Sync" button or LazyGit's `P` goes there. Besides
+  `push.autoSetupRemote` and `git push -u`, `remote.pushDefault` and
+  `branch.<name>.pushRemote` can point there too. `git switch <name>` also
+  creates a branch tracking a subtree remote when only that remote has a
+  branch `<name>`.
+- **LazyGit**, for a branch without an upstream, suggests `origin` if it
+  exists and otherwise the first remote. Without `origin`, a subtree remote
+  is one Enter away. With `push.default=current` it doesn't ask at all.
+- **Shell history.** `git push vendor/a main` and
+  `git subtree push --prefix=vendor/a vendor/a main` both match a reverse
+  search for `push vendor/a`.
+- `git push --all <remote>` and `git push --mirror <remote>`.
 
 When the remote already has the branch, a plain push is usually rejected
-as non-fast-forward. New branches and `--force` go through. Deleting the
-branch afterwards doesn't unpublish anything: hosts like GitHub keep the
-commits reachable by their hash, and anyone who fetched in the meantime has
-a copy. [Issue #50](https://github.com/roschaefer/git-subtrees/issues/50)
-has the details and the other options that were considered.
+as non-fast-forward. The dangerous cases are **new branches** and
+**`--force`**.
+
+It's hard to undo: deleting the branch afterwards doesn't unpublish
+anything. GitHub keeps the commits reachable by their hash until support
+purges them, and anyone who fetched or forked in the meantime has a copy
+([an example with ~4000 commits pushed by
+mistake](https://github.com/orgs/community/discussions/21995)). So this
+shouldn't be left to the user being careful.
+[Issue #50](https://github.com/roschaefer/git-subtrees/issues/50) has the
+other options that were considered.
 
 ## The protection
 
 A remote can have a push URL that differs from its fetch URL.
-`git subtrees init` sets it to `push with git subtrees push, not git push`.
+`git subtrees init` sets it to `BLOCKED by git-subtrees -- push with => git subtrees push`.
 Fetching is unaffected. Any push to the remote by its name fails, since Git
 finds no repository at that URL, and the error message says what to do.
 `git push --no-verify` doesn't get around it, and no hook is involved.
@@ -67,7 +87,7 @@ $ git subtrees status
 ok   vendor/a [NOT push-protected] (up to date)
 !!   vendor/a: a plain 'git push vendor/a' sends the whole monorepo there -- push-protect it with:
 
-  git remote set-url --push vendor/a 'push with git subtrees push, not git push'
+  git remote set-url --push vendor/a 'BLOCKED by git-subtrees -- push with => git subtrees push'
 
 ```
 
@@ -85,17 +105,25 @@ To $UPSTREAM
 ok   vendor/a: pushed
 ```
 
-But so does the slip. A plain push to a new branch publishes the whole
-monorepo, `internal/` included:
+But nothing stops the slip either. This monorepo has no `origin`, so with
+`push.autoSetupRemote`, a plain `git push` on a new branch picks
+`vendor/a`:
 
 ```scrut
-$ git push vendor/a main:oops
-To $UPSTREAM
- * [new branch]      main -> oops
+$ git config push.autoSetupRemote true && git switch -q -c topic
 ```
 
 ```scrut
-$ git -C "$UPSTREAM" ls-tree -r --name-only oops
+$ git push
+To $UPSTREAM
+ * [new branch]      topic -> topic
+branch 'topic' set up to track 'vendor/a/topic'.
+```
+
+That published the whole monorepo, `internal/` included:
+
+```scrut
+$ git -C "$UPSTREAM" ls-tree -r --name-only topic
 internal/notes.txt
 vendor/a/file.txt
 ```
@@ -104,19 +132,19 @@ Protect the remote with the command `status` printed (or by running
 `git subtrees init vendor/a <url>` again):
 
 ```scrut
-$ git remote set-url --push vendor/a 'push with git subtrees push, not git push'
+$ git remote set-url --push vendor/a 'BLOCKED by git-subtrees -- push with => git subtrees push'
+```
+
+`topic` now tracks `vendor/a`, so every later plain `git push` would go
+there. Now it fails, before anything is sent:
+
+```scrut
+$ echo "more notes" >>internal/notes.txt && git commit -qam "more internal notes"
 ```
 
 ```scrut
-$ git subtrees status
-ok   vendor/a [push-protected] (up to date)
-```
-
-Now the same slip fails, before anything is sent:
-
-```scrut
-$ git push vendor/a main:oops-again
-fatal: 'push with git subtrees push, not git push' does not appear to be a git repository
+$ git push
+fatal: 'BLOCKED by git-subtrees -- push with => git subtrees push' does not appear to be a git repository
 fatal: Could not read from remote repository.
 
 Please make sure you have the correct access rights
@@ -124,13 +152,24 @@ and the repository exists.
 [128]
 ```
 
-So does a plain `git subtree push`, which goes through the remote's name
-too. Use `git subtrees push`:
+Back on `main`, `status` shows the remote as protected:
+
+```scrut
+$ git switch -q main
+```
+
+```scrut
+$ git subtrees status
+ok   vendor/a [push-protected] (up to date)
+```
+
+A plain `git subtree push` fails too, since it also pushes by the remote's
+name. Use `git subtrees push`:
 
 ```scrut
 $ git subtree push --prefix=vendor/a vendor/a main
 git push using:  vendor/a main
-fatal: 'push with git subtrees push, not git push' does not appear to be a git repository
+fatal: 'BLOCKED by git-subtrees -- push with => git subtrees push' does not appear to be a git repository
 fatal: Could not read from remote repository.
 
 Please make sure you have the correct access rights

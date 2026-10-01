@@ -169,9 +169,10 @@ target_ref_for() {
 # The push URL of a push-protected subtree remote. Any push to the remote
 # that isn't a `git subtree split` sends the whole monorepo there, so a plain
 # `git push <remote>` must fail: Git can't find a repository at this URL and
-# prints it. It must not contain ':', or Git reads it as an ssh host.
+# prints it. It must not contain ':', or Git hands it to ssh as a host name
+# and prints an ssh error instead.
 # See test/scenarios/push-protection/README.md.
-PUSH_PROTECTED_URL="push with git subtrees push, not git push"
+PUSH_PROTECTED_URL="BLOCKED by git-subtrees -- push with => git subtrees push"
 
 # Succeeds if remote $1's only push URL is PUSH_PROTECTED_URL. A remote
 # with a push URL of its own is left alone, and isn't protected.
