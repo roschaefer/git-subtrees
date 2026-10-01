@@ -108,7 +108,7 @@ setup() {
   seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
   cd "$monorepo"
-  git remote add vendor/a "/some/other/url"
+  add_subtree_remote vendor/a "/some/other/url"
 
   run cmd_init "vendor/a" "$upstream"
   [ "$status" -eq 1 ]
@@ -295,7 +295,7 @@ setup() {
   scenario_init_on_feature_branch "$monorepo" "$upstream"
   cd "$monorepo"
   # Left over from an earlier fetch of a remote 'feature' that is gone now.
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   git update-ref refs/remotes/vendor/a/feature refs/remotes/vendor/a/main
 
@@ -403,4 +403,50 @@ setup() {
   run git -C "$upstream" cat-file -e "$secret"
   [ "$status" -ne 0 ]
   [ "$(git -C "$upstream" log --format=%s feature)" = $'feature change\nseed' ]
+}
+
+@test "init: push-protects the remote it registers, so a plain git push fails" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+
+  run cmd_init "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vendor/a: push-protected"* ]]
+  is_push_protected vendor/a
+
+  run git push vendor/a HEAD:refs/heads/oops
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"'$PUSH_PROTECTED_URL' does not appear to be a git repository"* ]]
+  run git -C "$upstream" rev-parse --verify --quiet refs/heads/oops
+  [ "$status" -ne 0 ]
+}
+
+@test "init: push-protects an already initialized subtree's remote" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  add_subtree "$monorepo" "$upstream" "vendor/a"
+  cd "$monorepo"
+  ! is_push_protected vendor/a
+
+  run cmd_init "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already initialized"* ]]
+  is_push_protected vendor/a
+}
+
+@test "init: keeps a remote's own push URL" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$upstream"
+  git remote set-url --push vendor/a "$BATS_TEST_TMPDIR/elsewhere.git"
+
+  run cmd_init "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"push-protected"* ]]
+  [ "$(git config --get-all remote.vendor/a.pushurl)" = "$BATS_TEST_TMPDIR/elsewhere.git" ]
 }

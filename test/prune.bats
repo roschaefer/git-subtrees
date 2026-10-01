@@ -12,7 +12,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p vendor/a
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   git -C "$upstream" update-ref -d refs/heads/temporary
 
@@ -31,7 +31,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p vendor/a
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   git -C "$upstream" update-ref -d refs/heads/temporary
   cd vendor/a
@@ -49,7 +49,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p -- -n
-  git remote add -- -n "$upstream"
+  add_subtree_remote -n "$upstream"
   git fetch -q -- -n
   git -C "$upstream" update-ref -d refs/heads/temporary
 
@@ -67,7 +67,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p vendor/a
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   git tag local-only
   git config --add remote.vendor/a.fetch "+refs/tags/*:refs/tags/*"

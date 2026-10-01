@@ -45,7 +45,7 @@ ok   vendor/pkg-a fetched (main moved 2db2a00..96a8153)
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (diverged)
+ok   vendor/pkg-a [push-protected] (diverged)
  file.txt | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 ```
@@ -117,7 +117,7 @@ left to push:
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (push)
+ok   vendor/pkg-a [push-protected] (push)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -132,7 +132,7 @@ ok   vendor/pkg-a: pushed
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (up to date)
+ok   vendor/pkg-a [push-protected] (up to date)
 ```
 
 If the two sides share no history at all, e.g. because the remote was

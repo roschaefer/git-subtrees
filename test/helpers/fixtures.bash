@@ -50,9 +50,26 @@ add_subtree() {
   local monorepo="$1" remote_url="$2" path="$3" branch="${4:-main}"
   (
     cd "$monorepo"
-    git remote add "$path" "$remote_url"
+    add_subtree_remote "$path" "$remote_url"
     git fetch -q "$path"
     git subtree add -q --prefix="$path" "$path" "$branch" --squash
+  )
+}
+
+# Adds remote $1 with URL $2, push-protected as `git subtrees init` leaves a
+# subtree remote.
+add_subtree_remote() {
+  git remote add -- "$1" "$2"
+  git remote set-url --push -- "$1" "$(push_protected_url)"
+}
+
+# Prints lib/common.sh's PUSH_PROTECTED_URL, for scripts that don't source
+# lib/ (the scenario READMEs only source this file).
+push_protected_url() {
+  (
+    # shellcheck disable=SC1091
+    source "$(dirname "${BASH_SOURCE[0]}")/../../lib/common.sh"
+    printf '%s\n' "$PUSH_PROTECTED_URL"
   )
 }
 

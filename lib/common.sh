@@ -166,6 +166,35 @@ target_ref_for() {
   printf 'refs/remotes/%s/%s\n' "$1" "$2"
 }
 
+# The push URL of a push-protected subtree remote. Any push to the remote
+# that isn't a `git subtree split` sends the whole monorepo there, so a plain
+# `git push <remote>` must fail: Git can't find a repository at this URL and
+# prints it. It must not contain ':', or Git reads it as an ssh host.
+# See test/scenarios/push-protection/README.md.
+PUSH_PROTECTED_URL="push with git subtrees push, not git push"
+
+# Succeeds if remote $1's only push URL is PUSH_PROTECTED_URL. A remote
+# with a push URL of its own is left alone, and isn't protected.
+is_push_protected() {
+  [[ "$(git config --get-all "remote.$1.pushurl" 2>/dev/null)" == "$PUSH_PROTECTED_URL" ]]
+}
+
+# Runs "$@" with PUSH_PROTECTED_URL rewritten to remote $1's fetch URL, so a
+# push to the remote by name gets through and updates its tracking refs.
+# The rewrite only touches that one URL: a remote with a push URL of its own
+# keeps pushing there. Passed through the environment rather than `git -c`,
+# which splits at the first '=' a URL may contain.
+with_push_allowed() {
+  local remote="$1" url n="${GIT_CONFIG_COUNT:-0}"
+  shift
+  url="$(git remote get-url -- "$remote")" || return
+  (
+    export GIT_CONFIG_COUNT=$((n + 1))
+    export "GIT_CONFIG_KEY_$n=url.$url.insteadOf" "GIT_CONFIG_VALUE_$n=$PUSH_PROTECTED_URL"
+    "$@"
+  )
+}
+
 # False for a name starting with '-'. git-subtree's own OPTS_SPEC parsing
 # (git rev-parse --parseopt) matches a handful of dash-prefixed values as
 # its own flags no matter where they appear (-h/--help, -q/--quiet, ...),
@@ -322,7 +351,7 @@ touched_since_sync() {
 }
 
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
-# Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
+# Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_SPLIT_SHA as
 # globals rather than returning a value, since callers (status, push, pull)
 # need them.
 #
@@ -352,7 +381,6 @@ classify_subtree() {
   SUBTREE_STATE=""
   SUBTREE_TARGET_REF=""
   SUBTREE_SPLIT_SHA=""
-  SUBTREE_URL="$(git remote get-url -- "$remote" 2>/dev/null || true)"
 
   if [[ -z "$(git for-each-ref "refs/remotes/$remote/")" ]]; then
     SUBTREE_STATE="not-connected"
@@ -459,6 +487,13 @@ print_unrelated_history_guidance() {
   q_tmp="$(shell_quote "$tmp_branch")"
   q_msg="$(shell_quote "remove $path before re-adopting it from its remote")"
   q_refspec="$(shell_quote "$tmp_branch:$branch")"
+  # A push-protected remote refuses the force push by name, so it goes to
+  # the fetch URL, and a fetch updates the tracking ref the push didn't.
+  local push_cmd="git push --force $q_path $q_refspec"
+  if is_push_protected "$path"; then
+    push_cmd="git push --force $(shell_quote "$(git remote get-url -- "$path")") $q_refspec"
+    push_cmd+=$'\n'"  git fetch $q_path"
+  fi
   log_warn "$path: remote and local share no history -- pick one side manually:"
   cat >&2 <<EOF
 
@@ -469,7 +504,7 @@ print_unrelated_history_guidance() {
 
   # OR: accept the local (monorepo) version, overwriting $path's history:
   git subtree split --prefix=$q_path -b $q_tmp
-  git push --force $q_path $q_refspec
+  $push_cmd
   git branch -D $q_tmp
 
 EOF

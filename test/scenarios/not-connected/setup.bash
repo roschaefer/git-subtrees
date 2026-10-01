@@ -7,7 +7,7 @@ scenario_not_connected() {
   (
     cd "$monorepo"
     mkdir -p vendor/a
-    git remote add vendor/a "$upstream"
+    add_subtree_remote vendor/a "$upstream"
   )
   # Deliberately never fetched.
 }

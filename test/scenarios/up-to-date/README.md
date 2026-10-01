@@ -24,7 +24,7 @@ Nothing to do on either side:
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
 ```
 
 ```scrut

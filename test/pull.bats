@@ -206,7 +206,7 @@ setup() {
   cd "$fresh_monorepo"
   git config user.name "Test"
   git config user.email "test@example.com"
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git config --add remote.vendor/a.fetch "+refs/tags/*:refs/tags/*"
 
   run cmd_pull vendor/a

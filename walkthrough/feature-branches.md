@@ -29,9 +29,9 @@ Switched to a new branch 'feature'
 
 ```scrut
 $ git subtrees status
-??   ghost -> (no mapping)
-??   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
-??   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
+??   ghost [no mapping]
+??   vendor/pkg-a [push-protected] (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
+??   vendor/pkg-b [push-protected] (no 'feature' branch on remote; monorepo base branch unknown -- pass --base <branch>)
 ```
 
 To tell whether a subtree changed on `feature`, git-subtrees compares it
@@ -45,9 +45,9 @@ $ git config init.defaultBranch main
 
 ```scrut
 $ git subtrees status
-??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
-ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (no 'feature' branch on remote; unchanged since 'main')
+??   ghost [no mapping]
+ok   vendor/pkg-a [push-protected] (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/pkg-b [push-protected] (no 'feature' branch on remote; unchanged since 'main')
 ```
 
 ## Changing one subtree
@@ -58,9 +58,9 @@ $ echo "a new option" >>vendor/pkg-b/file.txt && git commit -qam "pkg-b: add an 
 
 ```scrut
 $ git subtrees status
-??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
-ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (no 'feature' branch on remote; changed since 'main' -- push would create it)
+??   ghost [no mapping]
+ok   vendor/pkg-a [push-protected] (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/pkg-b [push-protected] (no 'feature' branch on remote; changed since 'main' -- push would create it)
  vendor/pkg-b/file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -94,9 +94,9 @@ ok   vendor/pkg-b: pushed
 
 ```scrut
 $ git subtrees status
-??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (no 'feature' branch on remote; unchanged since 'main')
-ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (up to date)
+??   ghost [no mapping]
+ok   vendor/pkg-a [push-protected] (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/pkg-b [push-protected] (up to date)
 ```
 
 `pull` on `feature` pulls from `pkg-b`'s `feature` branch. `pkg-a`'s
@@ -153,7 +153,7 @@ URL: $WALKTHROUGH/upstream/pkg-b.git
 
 ```scrut
 $ git subtrees status
-??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (up to date)
-ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (up to date)
+??   ghost [no mapping]
+ok   vendor/pkg-a [push-protected] (up to date)
+ok   vendor/pkg-b [push-protected] (up to date)
 ```

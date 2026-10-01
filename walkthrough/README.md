@@ -43,9 +43,9 @@ differ. `status` doesn't fetch; it uses what was fetched last.
 
 ```scrut
 $ git subtrees status
-??   ghost -> (no mapping)
-??   vendor/pkg-b -> (no mapping)
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (pull)
+??   ghost [no mapping]
+??   vendor/pkg-b [no mapping]
+ok   vendor/pkg-a [push-protected] (pull)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -58,6 +58,7 @@ otherwise.
 
 ```scrut
 $ git subtrees init vendor/pkg-b "$WALKTHROUGH/upstream/pkg-b.git"
+===  vendor/pkg-b: push-protected -- a plain 'git push vendor/pkg-b' fails, 'git subtrees push' works
 ===  vendor/pkg-b: fetching
 ok   vendor/pkg-b fetched
 ===  vendor/pkg-b: adding subtree from $WALKTHROUGH/upstream/pkg-b.git
@@ -127,7 +128,7 @@ $ echo "a local fix" >>vendor/pkg-a/file.txt && git commit -qam "pkg-a: a local 
 
 ```scrut
 $ git subtrees status vendor/pkg-a
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (push)
+ok   vendor/pkg-a [push-protected] (push)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -164,9 +165,9 @@ ok   vendor/pkg-b: nothing to push
 
 ```scrut
 $ git subtrees status
-??   ghost -> (no mapping)
-ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (up to date)
-ok   vendor/pkg-b -> $WALKTHROUGH/upstream/pkg-b.git (up to date)
+??   ghost [no mapping]
+ok   vendor/pkg-a [push-protected] (up to date)
+ok   vendor/pkg-b [push-protected] (up to date)
 ```
 
 ## prune

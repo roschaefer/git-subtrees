@@ -24,6 +24,7 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_init_unrelated
 ```scrut
 $ git subtrees init vendor/a "$UPSTREAM"
 ===  vendor/a: registering remote -> $UPSTREAM
+===  vendor/a: push-protected -- a plain 'git push vendor/a' fails, 'git subtrees push' works
 ===  vendor/a: fetching
 ok   vendor/a fetched
 !!   vendor/a: directory exists with content unrelated to $UPSTREAM

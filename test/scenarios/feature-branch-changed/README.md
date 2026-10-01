@@ -22,7 +22,7 @@ The scenario sets no base branch, so the commands pass `--base main`:
 
 ```scrut
 $ git subtrees status --base main
-ok   vendor/a -> $UPSTREAM (no 'feature' branch on remote; changed since 'main' -- push would create it)
+ok   vendor/a [push-protected] (no 'feature' branch on remote; changed since 'main' -- push would create it)
  vendor/a/file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -50,5 +50,5 @@ ok   vendor/a: pushed
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
 ```

@@ -11,7 +11,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p vendor/a
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
 
   run cmd_fetch
   [ "$status" -eq 0 ]
@@ -29,8 +29,8 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p changed unchanged
-  git remote add changed "$changed"
-  git remote add unchanged "$unchanged"
+  add_subtree_remote changed "$changed"
+  add_subtree_remote unchanged "$unchanged"
   git fetch -q changed
   git fetch -q unchanged
   git tag main
@@ -55,7 +55,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p -- -n
-  git remote add -- -n "$upstream"
+  add_subtree_remote -n "$upstream"
 
   run cmd_fetch -- -n
   [ "$status" -eq 0 ]
@@ -71,7 +71,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p vendor/a
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   git tag local-only
   git config --add remote.vendor/a.fetch "+refs/tags/*:refs/tags/*"
@@ -93,8 +93,8 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p vendor/a vendor/b
-  git remote add vendor/a "$up_a"
-  git remote add vendor/b "$up_b" # never created -- fetch will fail
+  add_subtree_remote vendor/a "$up_a"
+  add_subtree_remote vendor/b "$up_b" # never created -- fetch will fail
 
   run cmd_fetch
   [ "$status" -eq 1 ]
@@ -107,7 +107,7 @@ setup() {
 @test "fetch_one preserves diagnostics for branch fetch failures" {
   init_monorepo "$monorepo"
   cd "$monorepo"
-  git remote add vendor/a "$BATS_TEST_TMPDIR/missing.git"
+  add_subtree_remote vendor/a "$BATS_TEST_TMPDIR/missing.git"
 
   run fetch_one vendor/a main
 

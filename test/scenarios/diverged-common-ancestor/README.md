@@ -26,7 +26,7 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_diverged_commo
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (diverged)
+ok   vendor/a [push-protected] (diverged)
  file.txt | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 ```

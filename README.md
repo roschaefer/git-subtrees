@@ -12,7 +12,10 @@ repo:
     git remote add vendor/foo <url>    # vendor/foo is now a subtree
 
 That's all the configuration there is. `git subtrees status` lists what it
-found. Everything follows from two rules:
+found, and warns about each subtree remote that isn't push-protected: a
+plain `git push vendor/foo` sends the whole monorepo there, not just the
+folder ([why and how](test/scenarios/push-protection/README.md)). `git
+subtrees init` protects the remotes it sets up. Everything follows from two rules:
 
 1. **The remote name is the folder path.** If you move the folder, also run
    `git remote rename <old-path> <new-path>`.
@@ -79,8 +82,11 @@ starting a feature branch doesn't create empty branches on every remote.
 If none of these work, `push` asks for `--base` instead of guessing.
 
 **Setting up a subtree.** `git subtrees init <path> <url>` adds the remote
-if it's missing. It never changes the URL of an existing remote. If
-`<path>` doesn't exist yet, it runs `git subtree add` to bring in the
+if it's missing. It never changes the URL of an existing remote, but if
+the remote has no push URL of its own, `init` sets one that Git can't push
+to, so only `git subtrees push` can push there
+([why](test/scenarios/push-protection/README.md)). If `<path>` doesn't
+exist yet, it runs `git subtree add` to bring in the
 remote's content. On a branch the remote doesn't have yet, it adds the
 remote's base branch instead (found like for `push`), and your first `push`
 creates your branch on top of it. If the remote has neither (e.g. it's
@@ -121,6 +127,9 @@ More scenarios:
   `init` in a brand-new monorepo that has no commits yet.
 - [`nested-subtrees`](test/scenarios/nested-subtrees/README.md): why one
   subtree inside another is refused.
+- [`push-protection`](test/scenarios/push-protection/README.md): why a
+  plain `git push` to a subtree remote is blocked, and how
+  `git subtrees push` still gets through.
 - [`shared-remote-url`](test/scenarios/shared-remote-url/README.md): two
   subtrees with the same remote URL act like two clones of one repo.
 

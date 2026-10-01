@@ -87,7 +87,7 @@ setup() {
   cd "$monorepo"
   git remote add ghost "$upstream"
   run cmd_status
-  [[ "$output" == *"ghost -> (no mapping)"* ]]
+  [[ "$output" == *"ghost [no mapping]"* ]]
 }
 
 @test "status: does not print unmapped remote URL" {
@@ -97,7 +97,7 @@ setup() {
 
   run cmd_status
 
-  [[ "$output" == *"origin -> (no mapping)"* ]]
+  [[ "$output" == *"origin [no mapping]"* ]]
   [[ "$output" != *"token"* ]]
   [[ "$output" != *"example.com"* ]]
 }
@@ -173,4 +173,53 @@ setup() {
   run cmd_status --base=
   [ "$status" -eq 1 ]
   [[ "$output" == *"--base needs a branch name"* ]]
+}
+
+@test "status: marks a push-protected subtree, without a warning" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
+
+  run cmd_status
+  [ "$status" -eq 0 ]
+  [ "$output" = "ok   vendor/a [push-protected] (up to date)" ]
+}
+
+@test "status: warns about a subtree that isn't push-protected, with a command that protects it" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
+
+  run cmd_status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok   vendor/a [NOT push-protected] (up to date)"* ]]
+  [[ "$output" == *"!!   vendor/a: a plain 'git push vendor/a' sends the whole monorepo there"* ]]
+
+  local fix
+  fix="$(grep 'git remote set-url --push' <<<"$output")"
+  eval "$fix"
+  is_push_protected vendor/a
+}
+
+@test "status: shows a remote with its own push URL as not push-protected" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git remote set-url --push vendor/a "$upstream"
+
+  run cmd_status
+  [[ "$output" == *"vendor/a [NOT push-protected]"* ]]
+}
+
+@test "status: colors the warning red only where git would color its own status" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
+
+  run cmd_status
+  [[ "$output" != *$'\e['* ]]
+
+  git config color.status always
+  run cmd_status
+  [[ "$output" == *$'\e[31m[NOT push-protected]\e[m'* ]]
+  [[ "$output" == *$'\e[31m!!   vendor/a: '* ]]
 }
