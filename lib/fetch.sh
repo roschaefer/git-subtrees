@@ -92,7 +92,7 @@ fetch_branch_or_missing() {
   if remote_missing_branch "$remote" "$branch"; then
     # A tracking ref left from an earlier fetch would make status and push
     # compare against a branch the remote no longer has.
-    git update-ref -d "$(target_ref_for "$remote" "$branch")" 2>/dev/null || true
+    git update-ref -d "$(target_ref_for "$remote" "$branch")" || return 1
     return 2
   fi
   printf '%s\n' "$fetch_err" >&2
