@@ -185,19 +185,24 @@ setup() {
   [ "$output" = "ok   vendor/a [push-protected] (up to date)" ]
 }
 
-@test "status: warns about a subtree that isn't push-protected, with a command that protects it" {
+@test "status: marks a subtree that isn't push-protected, without nagging about it" {
   scenario_up_to_date "$monorepo" "$upstream"
   cd "$monorepo"
   git config --unset remote.vendor/a.pushurl
 
   run cmd_status
   [ "$status" -eq 0 ]
-  [[ "$output" == *"ok   vendor/a [NOT push-protected] (up to date)"* ]]
-  [[ "$output" == *"!!   vendor/a: a plain 'git push vendor/a' sends the whole monorepo there"* ]]
+  [ "$output" = "ok   vendor/a [NOT push-protected] (up to date)" ]
+}
+
+@test "status: -h shows a command that push-protects a subtree" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
 
   local fix
-  fix="$(grep 'git remote set-url --push' <<<"$output")"
-  eval "$fix"
+  fix="$(usage_status | grep 'git remote set-url --push')"
+  eval "${fix//<path>/vendor/a}"
   is_push_protected vendor/a
 }
 
@@ -210,7 +215,7 @@ setup() {
   [[ "$output" == *"vendor/a [NOT push-protected]"* ]]
 }
 
-@test "status: colors the warning red only where git would color its own status" {
+@test "status: colors [NOT push-protected] red only where git would color its own status" {
   scenario_up_to_date "$monorepo" "$upstream"
   cd "$monorepo"
   git config --unset remote.vendor/a.pushurl
@@ -221,5 +226,4 @@ setup() {
   git config color.status always
   run cmd_status
   [[ "$output" == *$'\e[31m[NOT push-protected]\e[m'* ]]
-  [[ "$output" == *$'\e[31m!!   vendor/a: '* ]]
 }

@@ -80,15 +80,11 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_push_protectio
 ```
 -->
 
-`status` warns about the remote that isn't protected:
+`status` marks the remote as not protected (in red, on a terminal):
 
 ```scrut
 $ git subtrees status
 ok   vendor/a [NOT push-protected] (up to date)
-!!   vendor/a: a plain 'git push vendor/a' sends the whole monorepo there -- push-protect it with:
-
-  git remote set-url --push vendor/a 'BLOCKED by git-subtrees -- push with => git subtrees push'
-
 ```
 
 Unprotected, `git subtrees push` works as you'd expect:
@@ -128,7 +124,7 @@ internal/notes.txt
 vendor/a/file.txt
 ```
 
-Protect the remote with the command `status` printed (or by running
+Protect the remote, as `git subtrees status -h` shows (or by running
 `git subtrees init vendor/a <url>` again):
 
 ```scrut

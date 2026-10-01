@@ -1,7 +1,7 @@
 # Assumes lib/common.sh is already sourced.
 
 usage_status() {
-  cat <<'EOF'
+  cat <<EOF
 usage: git subtrees status [--base <branch>] [path...]
 
 Shows the sync state of every subtree, plus every registered remote that
@@ -14,8 +14,10 @@ state is whether the subtree changed on this branch compared with the
 monorepo's base branch (--base, else origin/HEAD, else init.defaultBranch).
 
 Each subtree is marked [push-protected] or [NOT push-protected]. A plain
-'git push' to a remote that isn't protected sends the whole monorepo there;
-status ends with the command that protects it.
+'git push' to a remote that isn't protected sends the whole monorepo there.
+Protect it like 'git subtrees init' does:
+
+  git remote set-url --push <path> $(shell_quote "$PUSH_PROTECTED_URL")
 EOF
 }
 
@@ -40,15 +42,6 @@ subtree_label() {
   else
     printf '%s %s' "$1" "$(colorize $'\e[31m' '[NOT push-protected]' $'\e[m')"
   fi
-}
-
-# Warns about subtree path $1's remote not being push-protected, with the
-# command that protects it.
-format_unprotected_warning() {
-  local q_path
-  q_path="$(shell_quote "$1")"
-  colorize $'\e[31m' "!!   $1: a plain 'git push $q_path' sends the whole monorepo there -- push-protect it with:" $'\e[m'
-  printf '\n\n  git remote set-url --push %s %s\n\n' "$q_path" "$(shell_quote "$PUSH_PROTECTED_URL")"
 }
 
 # Prints the status of a subtree whose remote has no branch like the current
@@ -151,8 +144,5 @@ cmd_status() {
 
   for path in "${paths[@]}"; do
     format_status_line "$path" "$branch" "$base"
-  done
-  for path in "${paths[@]}"; do
-    is_push_protected "$path" || format_unprotected_warning "$path"
   done
 }

@@ -12,10 +12,7 @@ repo:
     git remote add vendor/foo <url>    # vendor/foo is now a subtree
 
 That's all the configuration there is. `git subtrees status` lists what it
-found, and warns about each subtree remote that isn't push-protected: a
-plain `git push vendor/foo` sends the whole monorepo there, not just the
-folder ([why and how](test/scenarios/push-protection/README.md)). `git
-subtrees init` protects the remotes it sets up. Everything follows from two rules:
+found. Everything follows from two rules:
 
 1. **The remote name is the folder path.** If you move the folder, also run
    `git remote rename <old-path> <new-path>`.
