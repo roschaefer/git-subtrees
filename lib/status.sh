@@ -23,12 +23,20 @@ EOF
 
 status_warn() { printf '??   %s\n' "$*"; }
 
-# Prints "$1$2$3", with ANSI codes $1 and $3 only if Git would color
-# `git status` here (color.status, else color.ui; default: on a terminal).
-colorize() {
+# Whether status colors its output, like Git colors `git status` (color.status,
+# else color.ui; by default only on a terminal). Set by cmd_status, before any
+# output goes through a command substitution, where stdout is never a terminal.
+declare -g STATUS_COLOR=false
+
+set_status_color() {
   local tty=false
   [[ -t 1 ]] && tty=true
-  if [[ "$(git config --get-colorbool color.status "$tty")" == true ]]; then
+  STATUS_COLOR="$(git config --get-colorbool color.status "$tty")"
+}
+
+# Prints "$1$2$3", with ANSI codes $1 and $3 only if STATUS_COLOR is true.
+colorize() {
+  if [[ "$STATUS_COLOR" == true ]]; then
     printf '%s%s%s' "$1" "$2" "$3"
   else
     printf '%s' "$2"
@@ -115,6 +123,7 @@ format_unmapped_remote_line() {
 
 cmd_status() {
   parse_base_args usage_status "$@"
+  set_status_color
   local base="$BASE_ARG"
   local paths=("${PATH_ARGS[@]}")
 

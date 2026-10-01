@@ -429,7 +429,9 @@ setup() {
   init_monorepo "$monorepo"
   add_subtree "$monorepo" "$upstream" "vendor/a"
   cd "$monorepo"
-  ! is_push_protected vendor/a
+  git config --unset remote.vendor/a.pushurl
+  run is_push_protected vendor/a
+  [ "$status" -eq 1 ]
 
   run cmd_init "vendor/a" "$upstream"
   [ "$status" -eq 0 ]

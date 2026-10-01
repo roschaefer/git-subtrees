@@ -235,7 +235,8 @@ setup() {
   git remote add vendor/a "$upstream"
   git remote set-url --push vendor/a "$BATS_TEST_TMPDIR/elsewhere.git"
 
-  ! is_push_protected vendor/a
+  run is_push_protected vendor/a
+  [ "$status" -eq 1 ]
   [ "$(with_push_allowed vendor/a git remote get-url --push vendor/a)" = "$BATS_TEST_TMPDIR/elsewhere.git" ]
 }
 
@@ -259,7 +260,8 @@ setup() {
   git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
   git remote set-url --add --push vendor/a "$upstream"
 
-  ! is_push_protected vendor/a
+  run is_push_protected vendor/a
+  [ "$status" -eq 1 ]
 }
 
 @test "classify_subtree: not-connected" {

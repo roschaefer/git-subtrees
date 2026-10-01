@@ -215,7 +215,19 @@ setup() {
   [[ "$output" == *"vendor/a [NOT push-protected]"* ]]
 }
 
-@test "status: colors [NOT push-protected] red only where git would color its own status" {
+@test "status: colors [NOT push-protected] red on a terminal" {
+  command -v script >/dev/null || skip "needs script(1) for a terminal"
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
+
+  run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'\e[31m[NOT push-protected]\e[m'* ]]
+}
+
+@test "status: doesn't color where git wouldn't color its own status" {
+  command -v script >/dev/null || skip "needs script(1) for a terminal"
   scenario_up_to_date "$monorepo" "$upstream"
   cd "$monorepo"
   git config --unset remote.vendor/a.pushurl
@@ -223,7 +235,8 @@ setup() {
   run cmd_status
   [[ "$output" != *$'\e['* ]]
 
-  git config color.status always
-  run cmd_status
-  [[ "$output" == *$'\e[31m[NOT push-protected]\e[m'* ]]
+  git config color.status never
+  run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
+  [[ "$output" == *"[NOT push-protected]"* ]]
+  [[ "$output" != *$'\e['* ]]
 }
