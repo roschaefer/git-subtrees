@@ -46,12 +46,13 @@ function __git_subtrees_init_needs_path
     test $seen_init = 1 -a $count = 0 -a $skip = 0
 end
 
-set -l commands diff init fetch merge pull prune push status
+set -l commands diff init install-hook fetch merge pull prune push status
 
 complete -c git-subtrees -f
 
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a diff -d 'show file changes that push would send'
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a init -d 'bootstrap a path/url pair'
+complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a install-hook -d 'refuse a plain git push of the monorepo to a subtree remote'
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a fetch -d "fetch every subtree's remote"
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a merge -d 'squash-merge fetched changes'
 complete -c git-subtrees -n "not __fish_seen_subcommand_from $commands" -a pull -d 'fetch, then merge'
@@ -68,6 +69,7 @@ complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -a "(__git_subtr
 complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -s n -l dry-run -d 'show stale refs without pruning'
 complete -c git-subtrees -n "__fish_seen_subcommand_from prune" -s h -l help -d 'show usage'
 
-complete -c git-subtrees -n "__fish_seen_subcommand_from init" -s h -l help -d 'show usage'
+complete -c git-subtrees -n "__fish_seen_subcommand_from init install-hook" -s h -l help -d 'show usage'
+complete -c git-subtrees -n "__fish_seen_subcommand_from install-hook" -l print -d 'print the hook instead of installing it'
 complete -c git-subtrees -n "__fish_seen_subcommand_from init" -l base -x -a "(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)" -d 'monorepo base branch to add from'
 complete -c git-subtrees -n __git_subtrees_init_needs_path -a "(__fish_complete_directories)"

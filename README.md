@@ -67,6 +67,7 @@ for options.
 | `push` | Pushes the **current repository's refs** to a remote. | Splits and pushes **every selected locally changed subtree** to its matching remote. |
 | `prune` | (`git remote prune`) Removes stale tracking refs for **one remote**. | Removes stale tracking refs for **every selected subtree remote**. |
 | `init` | Initializes the **current directory** as a Git repository. | Initializes **one path/remote pair inside the monorepo** as a managed subtree (see below). |
+| `install-hook` | | Installs a pre-push hook that refuses a plain `git push` of the monorepo to a subtree remote (see below). |
 
 `status`, `diff` and `merge` only use what was last fetched. Run
 `git subtrees fetch` first if you need the latest remote state.
@@ -92,6 +93,22 @@ the folder aside and merge it back by hand. The monorepo needs at least
 one commit: `git subtree add` merges into the current branch, so in a
 freshly created repository, run `git commit --allow-empty -m 'initial
 commit'` first.
+
+**Protecting the monorepo from a plain `git push`.** A subtree remote is
+an ordinary remote, so `git push vendor/foo main` pushes the whole
+monorepo to it, including folders that may not be meant to be public.
+`git subtrees install-hook` installs a pre-push hook that refuses this,
+and lists the remotes it protects. It refuses any commit that has a
+folder named like the remote it's pushed to, because by [the
+contract](#the-contract) that's a monorepo commit. `git subtrees push` and
+`git subtree push` only send the subtree's own history, so they still
+work. Hooks aren't cloned, so run it once per clone; all worktrees of a
+clone share it. Until then, `status` and `init` remind you. If you
+already have a pre-push hook, `git subtrees install-hook --help` explains
+how to add this one to it. The hook protects against mistakes, not on
+purpose: `git push --no-verify` skips it. That's also the way out if a
+subtree has a folder named like its own path, e.g. a subtree `lib` with a
+`lib/` folder, which the hook takes for the monorepo.
 
 ## Sync states
 

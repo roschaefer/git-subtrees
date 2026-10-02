@@ -36,6 +36,7 @@ _git-subtrees() {
   commands=(
     'diff:show file changes that push would send'
     'init:one-time bootstrap of a path/url pair'
+    'install-hook:refuse a plain git push of the monorepo to a subtree remote'
     'fetch:fetch every subtree'\''s remote'
     'merge:squash-merge fetched changes into subtree paths'
     'pull:fetch, then merge'
@@ -83,6 +84,11 @@ _git-subtrees() {
       if [[ $state == paths ]]; then
         _describe -t paths 'subtree path' paths
       fi
+      ;;
+    install-hook)
+      _arguments \
+        '--print[print the hook instead of installing it]' \
+        '(-h --help)'{-h,--help}'[show usage]'
       ;;
     init)
       # _arguments counts positionals from words[2]; drop "git-subtrees" so

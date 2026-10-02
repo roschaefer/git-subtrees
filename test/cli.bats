@@ -29,7 +29,7 @@ setup() {
 }
 
 @test "cli: each subcommand's own -h works" {
-  for cmd in diff init fetch merge pull prune push status; do
+  for cmd in diff init install-hook fetch merge pull prune push status; do
     run "$entrypoint" "$cmd" -h
     [ "$status" -eq 0 ]
     [[ "$output" == *"usage: git subtrees $cmd"* ]]
@@ -98,13 +98,14 @@ setup() {
   cd "$monorepo"
   local before cmd
   before="$(git rev-parse HEAD)"
-  for cmd in status diff fetch merge pull push prune; do
+  for cmd in status diff fetch merge pull push prune install-hook; do
     run "$entrypoint" "$cmd"
     [ "$status" -eq 1 ]
     [[ "$output" == *"nested subtrees are not supported: 'vendor/pkg' and 'vendor/pkg/extra' overlap"* ]]
   done
   [ "$(git rev-parse HEAD)" = "$before" ]
   [ -z "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
+  [ ! -e .git/hooks/pre-push ]
 }
 
 @test "cli: a remote overlapping a subtree is refused even without a folder of its own" {

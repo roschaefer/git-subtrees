@@ -70,6 +70,7 @@ setup() {
 @test "status: reports not-connected on stdout" {
   scenario_not_connected "$monorepo" "$upstream"
   cd "$monorepo"
+  "$BATS_TEST_DIRNAME/../git-subtrees" install-hook >/dev/null
   local stderr="$BATS_TEST_TMPDIR/status.stderr"
 
   run bash -c '"$1" status 2>"$2"' _ "$BATS_TEST_DIRNAME/../git-subtrees" "$stderr"

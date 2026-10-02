@@ -7,7 +7,7 @@ merged on both sides.
 
 <!-- Builds a fresh sandbox; see `just docs-check`.
 ```scrut {fail_fast: true, output_stream: combined}
-$ source "$TESTDIR/scrut-setup.sh"
+$ source "$TESTDIR/scrut-setup.sh" && git subtrees install-hook >/dev/null
 ```
 -->
 

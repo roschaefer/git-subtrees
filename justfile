@@ -8,6 +8,7 @@ lint:
     shellcheck completions/git-subtrees.bash
     shellcheck bench/setup.sh bench/run.sh
     shellcheck -x walkthrough/scrut-setup.sh test/scenarios/readme-setup.sh
+    source lib/common.sh && source lib/hook.sh && pre_push_hook | shellcheck -s sh -
 
 # Format with shfmt
 fmt:

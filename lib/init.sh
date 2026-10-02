@@ -1,4 +1,5 @@
-# Assumes lib/common.sh (and, via fetch_one, lib/fetch.sh) is already sourced.
+# Assumes lib/common.sh, lib/hook.sh and (via fetch_one) lib/fetch.sh are
+# already sourced.
 
 usage_init() {
   cat <<'EOF'
@@ -81,6 +82,11 @@ adopt_subtree() {
 }
 
 cmd_init() {
+  init_subtree "$@"
+  hint_pre_push_hook
+}
+
+init_subtree() {
   parse_base_args usage_init "$@"
   local base="$BASE_ARG"
   local path="${PATH_ARGS[0]:-}" url="${PATH_ARGS[1]:-}"

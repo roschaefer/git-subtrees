@@ -48,6 +48,29 @@ $ git subtrees status
 ok   vendor/pkg-a -> $WALKTHROUGH/upstream/pkg-a.git (pull)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
+??   a plain 'git push' can send the monorepo to a subtree remote -- run 'git subtrees install-hook' to refuse that
+```
+
+## install-hook
+
+A subtree remote is an ordinary remote, so a plain `git push` would send
+it the whole monorepo. `status` said so above. `install-hook` installs a
+pre-push hook that refuses that, and lists the remotes it protects:
+
+```scrut
+$ git subtrees install-hook
+ok   installed pre-push hook: .git/hooks/pre-push
+ok   vendor/pkg-a: protected from a plain 'git push' of the monorepo
+ok   subtrees you add later are protected too
+```
+
+```scrut
+$ git push --force vendor/pkg-a main
+!!   refusing to push refs/heads/main to 'vendor/pkg-a': commit 256e0194e8f1cb107d4e9bfd2db8578510ec66e2 has a folder 'vendor/pkg-a/', so it's the monorepo, not the subtree
+!!   push subtree changes with 'git subtrees push' instead
+!!   if the subtree itself has a folder named like its path, push with --no-verify
+error: failed to push some refs to '$WALKTHROUGH/upstream/pkg-a.git'
+[1]
 ```
 
 ## init

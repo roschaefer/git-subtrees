@@ -23,6 +23,9 @@ build_scenario() {
   source "$TESTDIR/setup.bash"
   "$1" "$PWD/monorepo" "$UPSTREAM" >/dev/null 2>&1 || return
   cd monorepo || return
+  # Keeps the hook's reminder out of the scenarios, which are about sync
+  # states; the walkthrough shows it. It fails for nested subtrees.
+  git subtrees install-hook >/dev/null 2>&1 || true
   scenario_built=1
 }
 
