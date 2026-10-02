@@ -217,13 +217,17 @@ unprotected_push_url() {
 
 # Runs "$@" with PUSH_PROTECTED_URL rewritten to where remote $1 would push
 # if it weren't protected, so a push to the remote by name gets through and
-# updates its tracking refs. The rewrite only touches that one URL: a remote
-# with a push URL of its own keeps pushing there. Passed through the
-# environment rather than `git -c`, which splits at the first '=' a URL may
-# contain.
+# updates its tracking refs. Only for a protected remote: a remote with a
+# push URL of its own keeps pushing there, even if PUSH_PROTECTED_URL is
+# one of its push URLs. Passed through the environment rather than `git -c`,
+# which splits at the first '=' a URL may contain.
 with_push_allowed() {
   local remote="$1" url n="${GIT_CONFIG_COUNT:-0}"
   shift
+  if ! is_push_protected "$remote"; then
+    "$@"
+    return
+  fi
   url="$(unprotected_push_url "$remote")" || return
   (
     export GIT_CONFIG_COUNT=$((n + 1))
@@ -526,12 +530,11 @@ print_unrelated_history_guidance() {
   q_refspec="$(shell_quote "$tmp_branch:$branch")"
   # A push-protected remote refuses the force push, so the commands lift
   # the protection for it -- rather than push to the remote's URL, which
-  # may hold credentials and would skip url.<base>.pushInsteadOf.
+  # may hold credentials and would skip url.<base>.pushInsteadOf. One line
+  # joined with ';', so the protection comes back even if the push fails.
   local push_cmd="git push --force $q_path $q_refspec"
   if is_push_protected "$path"; then
-    push_cmd="git config --unset $(shell_quote "remote.$path.pushurl")"
-    push_cmd+=$'\n'"  git push --force $q_path $q_refspec"
-    push_cmd+=$'\n'"  git remote set-url --push $q_path $(shell_quote "$PUSH_PROTECTED_URL")"
+    push_cmd="git config --unset $(shell_quote "remote.$path.pushurl"); git push --force $q_path $q_refspec; git remote set-url --push $q_path $(shell_quote "$PUSH_PROTECTED_URL")"
   fi
   log_warn "$path: remote and local share no history -- pick one side manually:"
   cat >&2 <<EOF

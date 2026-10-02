@@ -363,3 +363,16 @@ remote_has_branch() {
   [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
   [ "$(git -C "$push_target" rev-parse main)" != "$before" ]
 }
+
+@test "push: a protected remote with another push URL added later doesn't push to its fetch URL" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  local other="$BATS_TEST_TMPDIR/other.git"
+  git clone -q --bare "$upstream" "$other"
+  cd "$monorepo"
+  git remote set-url --add --push vendor/a "$other"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+}

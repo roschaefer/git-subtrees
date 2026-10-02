@@ -221,7 +221,7 @@ setup() {
   cd "$monorepo"
   git config --unset remote.vendor/a.pushurl
 
-  run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
+  TERM=xterm run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
   [ "$status" -eq 0 ]
   [[ "$output" == *$'\e[31m[NOT push-protected]\e[m'* ]]
 }
@@ -236,7 +236,7 @@ setup() {
   [[ "$output" != *$'\e['* ]]
 
   git config color.status never
-  run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
+  TERM=xterm run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
   [[ "$output" == *"[NOT push-protected]"* ]]
   [[ "$output" != *$'\e['* ]]
 }

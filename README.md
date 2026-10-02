@@ -155,6 +155,7 @@ Requires:
 
 - Bash >= 4.4. macOS ships 3.2, so install a newer one (e.g.
   `brew install bash`) and put it first on your `PATH`.
+- Git >= 2.31.
 - `git subtree`, which most Linux distributions bundle with git. Check with
   `git subtree --help`.
 

@@ -492,14 +492,14 @@ add_monorepo_origin() {
   [[ "$output" == *"git push --force 'vendor/x;id' 'tmp-split-x;id:main'"* ]]
 }
 
-@test "print_unrelated_history_guidance: lifts a protected remote's protection for the force push, without printing its URL" {
+@test "print_unrelated_history_guidance: lifts a protected remote's protection for the force push in one line, without printing its URL" {
   init_monorepo "$monorepo"
   cd "$monorepo"
   git remote add vendor/a "https://x-access-token:secret@example.com/a.git"
   git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
 
   run print_unrelated_history_guidance vendor/a main
-  [[ "$output" == *"git config --unset remote.vendor/a.pushurl"$'\n'"  git push --force vendor/a tmp-split-a:main"$'\n'"  git remote set-url --push vendor/a '$PUSH_PROTECTED_URL'"$'\n'* ]]
+  [[ "$output" == *"git config --unset remote.vendor/a.pushurl; git push --force vendor/a tmp-split-a:main; git remote set-url --push vendor/a '$PUSH_PROTECTED_URL'"$'\n'* ]]
   [[ "$output" != *"secret"* ]]
 }
 
