@@ -452,3 +452,17 @@ setup() {
   [[ "$output" != *"push-protected"* ]]
   [ "$(git config --get-all remote.vendor/a.pushurl)" = "$BATS_TEST_TMPDIR/elsewhere.git" ]
 }
+
+@test "init: leaves a remote with several URLs unprotected, since a push goes to all of them" {
+  make_bare_repo "$upstream"
+  seed_bare_repo "$upstream" "seed"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$upstream"
+  git remote set-url --add vendor/a "$BATS_TEST_TMPDIR/mirror.git"
+
+  run cmd_init "vendor/a" "$upstream"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"push-protected"* ]]
+  [ -z "$(push_urls vendor/a)" ]
+}

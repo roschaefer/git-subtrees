@@ -58,8 +58,9 @@ Fetching is unaffected. Any push to the remote by its name fails, since Git
 finds no repository at that URL, and the error message says what to do.
 `git push --no-verify` doesn't get around it, and no hook is involved.
 
-`git subtrees push` rewrites exactly that URL to the fetch URL for its own
-push, and only for that push. It still pushes by the remote's name, so Git
+`git subtrees push` rewrites exactly that URL, for its own push only, to
+where the remote would push without it: the fetch URL, after any
+`url.<base>.pushInsteadOf` or `url.<base>.insteadOf` rewriting. It still pushes by the remote's name, so Git
 updates the remote's tracking refs as before: no `fetch` is needed after a
 push, protected or not.
 
@@ -67,7 +68,8 @@ The protection is part of the local repository's config, like the remote
 itself, so every clone of the monorepo needs it again. `git subtrees init`
 sets it for a remote that has no push URL yet. A remote with a push URL of
 its own keeps it, and `git subtrees push` pushes there; it just doesn't
-count as protected.
+count as protected. The same goes for a remote with several URLs, since a
+push goes to all of them, but the protected URL can only stand for one.
 
 ## Output
 
@@ -192,4 +194,25 @@ the tracking ref moved with the push, so `status` is up to date without a
 ```scrut
 $ git subtrees status
 ok   vendor/a [push-protected] (up to date)
+```
+
+## When you do need a plain push
+
+`git subtrees push` only sends subtree changes. To delete a branch on the
+remote or force-push a split by hand, lift the protection for that one
+push, and put it back right after. Here, the branch the slip created
+earlier goes away (which, as said above, doesn't unpublish its commits):
+
+```scrut
+$ git config --unset remote.vendor/a.pushurl
+```
+
+```scrut
+$ git push vendor/a --delete topic
+To $UPSTREAM
+ - [deleted]         topic
+```
+
+```scrut
+$ git remote set-url --push vendor/a 'BLOCKED by git-subtrees -- push with => git subtrees push'
 ```

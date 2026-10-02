@@ -492,12 +492,42 @@ add_monorepo_origin() {
   [[ "$output" == *"git push --force 'vendor/x;id' 'tmp-split-x;id:main'"* ]]
 }
 
-@test "print_unrelated_history_guidance: force-pushes a protected remote at its fetch URL, then fetches" {
+@test "print_unrelated_history_guidance: lifts a protected remote's protection for the force push, without printing its URL" {
   init_monorepo "$monorepo"
   cd "$monorepo"
-  git remote add vendor/a "$BATS_TEST_TMPDIR/up stream.git"
+  git remote add vendor/a "https://x-access-token:secret@example.com/a.git"
   git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
 
   run print_unrelated_history_guidance vendor/a main
-  [[ "$output" == *"git push --force '$BATS_TEST_TMPDIR/up stream.git' tmp-split-a:main"$'\n'"  git fetch vendor/a"$'\n'* ]]
+  [[ "$output" == *"git config --unset remote.vendor/a.pushurl"$'\n'"  git push --force vendor/a tmp-split-a:main"$'\n'"  git remote set-url --push vendor/a '$PUSH_PROTECTED_URL'"$'\n'* ]]
+  [[ "$output" != *"secret"* ]]
+}
+
+# What a push to $1 goes to without protection, according to Git itself.
+git_push_target() {
+  local saved
+  saved="$(git config --get-all "remote.$1.pushurl")"
+  git config --unset-all "remote.$1.pushurl"
+  git remote get-url --push "$1"
+  git config --add "remote.$1.pushurl" "$saved"
+}
+
+@test "unprotected_push_url: the fetch URL, rewritten like Git rewrites it for a push" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  add_subtree_remote vendor/a "https://example.com/org/a.git"
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "https://example.com/org/a.git" ]
+
+  git config url.https://mirror.example.com/.insteadOf https://example.com/
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "https://mirror.example.com/org/a.git" ]
+
+  git config url.git@example.com:.pushInsteadOf https://example.com/
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "git@example.com:org/a.git" ]
+
+  git config "url.git@example.com:org/special-.pushInsteadOf" https://example.com/org/
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "git@example.com:org/special-a.git" ]
 }

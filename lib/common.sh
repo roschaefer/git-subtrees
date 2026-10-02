@@ -174,21 +174,57 @@ target_ref_for() {
 # See test/scenarios/push-protection/README.md.
 PUSH_PROTECTED_URL="BLOCKED by git-subtrees -- push with => git subtrees push"
 
+# Prints remote $1's configured push URLs, one per line.
+push_urls() {
+  git config --get-all "remote.$1.pushurl" 2>/dev/null || true
+}
+
 # Succeeds if remote $1's only push URL is PUSH_PROTECTED_URL. A remote
 # with a push URL of its own is left alone, and isn't protected.
 is_push_protected() {
-  [[ "$(git config --get-all "remote.$1.pushurl" 2>/dev/null)" == "$PUSH_PROTECTED_URL" ]]
+  [[ "$(push_urls "$1")" == "$PUSH_PROTECTED_URL" ]]
 }
 
-# Runs "$@" with PUSH_PROTECTED_URL rewritten to remote $1's fetch URL, so a
-# push to the remote by name gets through and updates its tracking refs.
-# The rewrite only touches that one URL: a remote with a push URL of its own
-# keeps pushing there. Passed through the environment rather than `git -c`,
-# which splits at the first '=' a URL may contain.
+# Succeeds if init may push-protect remote $1. Not if it has a push URL of
+# its own, or several URLs: Git pushes to all of them, but the protected URL
+# can only be rewritten to one.
+can_push_protect() {
+  [[ -z "$(push_urls "$1")" && "$(git config --get-all "remote.$1.url" 2>/dev/null | wc -l)" -eq 1 ]]
+}
+
+# Prints the URL a push to remote $1 would go to if it weren't protected.
+# Git rewrites the remote's URL with the longest matching
+# url.<base>.pushInsteadOf, else with url.<base>.insteadOf -- but not a
+# push URL like PUSH_PROTECTED_URL, so with_push_allowed has to do it.
+unprotected_push_url() {
+  local raw entry key prefix best_base="" best_prefix=""
+  raw="$(git config --get "remote.$1.url")" || return
+  while IFS= read -r -d '' entry; do
+    key="${entry%%$'\n'*}"
+    prefix="${entry#*$'\n'}"
+    if [[ "$raw" == "$prefix"* && ${#prefix} -gt ${#best_prefix} ]]; then
+      best_prefix="$prefix"
+      best_base="${key#url.}"
+      best_base="${best_base%.*}"
+    fi
+  done < <(git config -z --get-regexp '^url\..*\.pushinsteadof$' 2>/dev/null || true)
+  if [[ -n "$best_prefix" ]]; then
+    printf '%s%s\n' "$best_base" "${raw#"$best_prefix"}"
+  else
+    git remote get-url -- "$1"
+  fi
+}
+
+# Runs "$@" with PUSH_PROTECTED_URL rewritten to where remote $1 would push
+# if it weren't protected, so a push to the remote by name gets through and
+# updates its tracking refs. The rewrite only touches that one URL: a remote
+# with a push URL of its own keeps pushing there. Passed through the
+# environment rather than `git -c`, which splits at the first '=' a URL may
+# contain.
 with_push_allowed() {
   local remote="$1" url n="${GIT_CONFIG_COUNT:-0}"
   shift
-  url="$(git remote get-url -- "$remote")" || return
+  url="$(unprotected_push_url "$remote")" || return
   (
     export GIT_CONFIG_COUNT=$((n + 1))
     export "GIT_CONFIG_KEY_$n=url.$url.insteadOf" "GIT_CONFIG_VALUE_$n=$PUSH_PROTECTED_URL"
@@ -488,12 +524,14 @@ print_unrelated_history_guidance() {
   q_tmp="$(shell_quote "$tmp_branch")"
   q_msg="$(shell_quote "remove $path before re-adopting it from its remote")"
   q_refspec="$(shell_quote "$tmp_branch:$branch")"
-  # A push-protected remote refuses the force push by name, so it goes to
-  # the fetch URL, and a fetch updates the tracking ref the push didn't.
+  # A push-protected remote refuses the force push, so the commands lift
+  # the protection for it -- rather than push to the remote's URL, which
+  # may hold credentials and would skip url.<base>.pushInsteadOf.
   local push_cmd="git push --force $q_path $q_refspec"
   if is_push_protected "$path"; then
-    push_cmd="git push --force $(shell_quote "$(git remote get-url -- "$path")") $q_refspec"
-    push_cmd+=$'\n'"  git fetch $q_path"
+    push_cmd="git config --unset $(shell_quote "remote.$path.pushurl")"
+    push_cmd+=$'\n'"  git push --force $q_path $q_refspec"
+    push_cmd+=$'\n'"  git remote set-url --push $q_path $(shell_quote "$PUSH_PROTECTED_URL")"
   fi
   log_warn "$path: remote and local share no history -- pick one side manually:"
   cat >&2 <<EOF

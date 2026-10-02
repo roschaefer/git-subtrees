@@ -49,8 +49,9 @@ ok   vendor/a fetched
 
   # OR: accept the local (monorepo) version, overwriting vendor/a's history:
   git subtree split --prefix=vendor/a -b tmp-split-a
-  git push --force $UPSTREAM tmp-split-a:main
-  git fetch vendor/a
+  git config --unset remote.vendor/a.pushurl
+  git push --force vendor/a tmp-split-a:main
+  git remote set-url --push vendor/a 'BLOCKED by git-subtrees -- push with => git subtrees push'
   git branch -D tmp-split-a
 
 !!   Failed: vendor/a

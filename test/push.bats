@@ -58,7 +58,7 @@ setup() {
   after="$(git -C "$upstream" rev-parse main)"
   [ "$before" = "$after" ]
   [[ "$output" == *"share no history"* ]]
-  [[ "$output" == *"git push --force $upstream tmp-split-a:main"* ]]
+  [[ "$output" == *"git push --force vendor/a tmp-split-a:main"* ]]
 }
 
 @test "push_one: refuses a branch git-subtree cannot use, without classifying" {
@@ -347,4 +347,19 @@ remote_has_branch() {
   [ "$(git -C "$upstream" rev-parse 'main^{tree}')" = "$(git rev-parse HEAD:vendor/a)" ]
   classify_subtree "vendor/a" "main"
   [ "$SUBTREE_STATE" = "up-to-date" ]
+}
+
+@test "push: a push-protected remote is pushed to where url.<base>.pushInsteadOf sends it" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  local push_target="$BATS_TEST_TMPDIR/push-target.git"
+  git clone -q --bare "$upstream" "$push_target"
+  cd "$monorepo"
+  git config "url.$push_target.pushInsteadOf" "$upstream"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+  [ "$(git -C "$push_target" rev-parse main)" != "$before" ]
 }
