@@ -10,6 +10,7 @@ setup() {
   load 'scenarios/feature-branch-unchanged/setup'
   load 'scenarios/feature-branch-changed/setup'
   load 'scenarios/diverged-then-pulled/setup'
+  load 'scenarios/squash-merged-pull/setup'
   monorepo="$BATS_TEST_TMPDIR/monorepo"
   upstream="$BATS_TEST_TMPDIR/upstream.git"
 }
@@ -173,4 +174,11 @@ setup() {
   run cmd_status --base=
   [ "$status" -eq 1 ]
   [[ "$output" == *"--base needs a branch name"* ]]
+}
+
+@test "status: reports push after a pull on a squash-merged branch" {
+  scenario_squash_merged_pull "$monorepo" "$upstream"
+  cd "$monorepo"
+  run cmd_status
+  [[ "$output" == *"(push)"* ]]
 }
