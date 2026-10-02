@@ -179,17 +179,25 @@ push_urls() {
   git config --get-all "remote.$1.pushurl" 2>/dev/null || true
 }
 
-# Succeeds if remote $1's only push URL is PUSH_PROTECTED_URL. A remote
-# with a push URL of its own is left alone, and isn't protected.
-is_push_protected() {
-  [[ "$(push_urls "$1")" == "$PUSH_PROTECTED_URL" ]]
+# Succeeds if remote $1 has exactly one URL. Without a push URL, Git pushes
+# to all of a remote's URLs, but PUSH_PROTECTED_URL can only be rewritten to
+# one of them.
+has_single_url() {
+  [[ "$(git config --get-all "remote.$1.url" 2>/dev/null | wc -l)" -eq 1 ]]
 }
 
-# Succeeds if init may push-protect remote $1. Not if it has a push URL of
-# its own, or several URLs: Git pushes to all of them, but the protected URL
-# can only be rewritten to one.
+# Succeeds if remote $1's only push URL is PUSH_PROTECTED_URL and it has a
+# single URL to push to instead. A remote with a push URL of its own is left
+# alone, and isn't protected; neither is one that got another URL later, so
+# push leaves its blocked URL in place and fails instead of skipping a URL.
+is_push_protected() {
+  [[ "$(push_urls "$1")" == "$PUSH_PROTECTED_URL" ]] && has_single_url "$1"
+}
+
+# Succeeds if init may push-protect remote $1: it has no push URL of its
+# own, and a single URL.
 can_push_protect() {
-  [[ -z "$(push_urls "$1")" && "$(git config --get-all "remote.$1.url" 2>/dev/null | wc -l)" -eq 1 ]]
+  [[ -z "$(push_urls "$1")" ]] && has_single_url "$1"
 }
 
 # Prints the URL a push to remote $1 would go to if it weren't protected.
@@ -197,18 +205,22 @@ can_push_protect() {
 # url.<base>.pushInsteadOf, else with url.<base>.insteadOf -- but not a
 # push URL like PUSH_PROTECTED_URL, so with_push_allowed has to do it.
 unprotected_push_url() {
-  local raw entry key prefix best_base="" best_prefix=""
+  local raw entry key prefix found=0 best_base="" best_prefix=""
   raw="$(git config --get "remote.$1.url")" || return
   while IFS= read -r -d '' entry; do
+    # A key without '=' has no newline and no value: not a prefix.
+    [[ "$entry" == *$'\n'* ]] || continue
     key="${entry%%$'\n'*}"
     prefix="${entry#*$'\n'}"
-    if [[ "$raw" == "$prefix"* && ${#prefix} -gt ${#best_prefix} ]]; then
+    # An empty prefix matches every URL, like in Git.
+    if [[ "$raw" == "$prefix"* ]] && ((!found || ${#prefix} > ${#best_prefix})); then
+      found=1
       best_prefix="$prefix"
       best_base="${key#url.}"
       best_base="${best_base%.*}"
     fi
   done < <(git config -z --get-regexp '^url\..*\.pushinsteadof$' 2>/dev/null || true)
-  if [[ -n "$best_prefix" ]]; then
+  if ((found)); then
     printf '%s%s\n' "$best_base" "${raw#"$best_prefix"}"
   else
     git remote get-url -- "$1"

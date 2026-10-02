@@ -376,3 +376,19 @@ remote_has_branch() {
   run push_one "vendor/a" "main"
   [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
 }
+
+@test "push: a protected remote that got another URL later fails instead of skipping that URL" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  local mirror="$BATS_TEST_TMPDIR/mirror.git"
+  git clone -q --bare "$upstream" "$mirror"
+  cd "$monorepo"
+  git remote set-url --add vendor/a "$mirror"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"'$PUSH_PROTECTED_URL' does not appear to be a git repository"* ]]
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+  [ "$(git -C "$mirror" rev-parse main)" = "$before" ]
+}

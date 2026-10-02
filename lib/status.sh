@@ -15,7 +15,8 @@ monorepo's base branch (--base, else origin/HEAD, else init.defaultBranch).
 
 Each subtree is marked [push-protected] or [NOT push-protected]. A plain
 'git push' to a remote that isn't protected sends the whole monorepo there.
-Protect it like 'git subtrees init' does:
+A remote without a push URL of its own, and with a single URL, can be
+protected like 'git subtrees init' does:
 
   git remote set-url --push <path> $(shell_quote "$PUSH_PROTECTED_URL")
 EOF

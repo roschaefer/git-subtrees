@@ -531,3 +531,24 @@ git_push_target() {
   [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
   [ "$(unprotected_push_url vendor/a)" = "git@example.com:org/special-a.git" ]
 }
+
+@test "unprotected_push_url: an empty pushInsteadOf prefix matches every URL, like in Git" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  add_subtree_remote vendor/a "org/a.git"
+  git config url.ssh://example.com/.pushInsteadOf ""
+
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "ssh://example.com/org/a.git" ]
+}
+
+@test "is_push_protected: not for a protected remote that got another URL later" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  add_subtree_remote vendor/a "$upstream"
+  is_push_protected vendor/a
+
+  git remote set-url --add vendor/a "$BATS_TEST_TMPDIR/mirror.git"
+  run is_push_protected vendor/a
+  [ "$status" -eq 1 ]
+}
