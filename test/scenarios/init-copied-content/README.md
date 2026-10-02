@@ -46,6 +46,7 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_init_copied_co
 ```scrut
 $ git subtrees init vendor/a "$UPSTREAM"
 ===  vendor/a: registering remote -> $UPSTREAM
+===  vendor/a: push-protected -- a plain 'git push vendor/a' fails, 'git subtrees push' works
 ===  vendor/a: fetching
 ok   vendor/a fetched
 ok   vendor/a: content matches 'main' on the remote -- recorded it as the last sync
@@ -68,5 +69,5 @@ $ git log --oneline --graph
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
 ```

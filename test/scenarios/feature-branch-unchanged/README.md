@@ -23,7 +23,7 @@ The scenario sets no base branch, so the commands pass `--base main`:
 
 ```scrut
 $ git subtrees status --base main
-ok   vendor/a -> $UPSTREAM (no 'feature' branch on remote; unchanged since 'main')
+ok   vendor/a [push-protected] (no 'feature' branch on remote; unchanged since 'main')
 ```
 
 ```scrut

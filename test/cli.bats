@@ -132,7 +132,7 @@ setup() {
   [ -z "$(git for-each-ref refs/remotes/vendor/pkg/extra/)" ]
   run "$entrypoint" status
   [ "$status" -eq 0 ]
-  [[ "$output" == *"vendor/pkg -> $upstream"* ]]
+  [[ "$output" == *"vendor/pkg [push-protected] ("* ]]
 }
 
 @test "cli: the printed nested-subtree fix is safe to run for a name with shell metacharacters" {

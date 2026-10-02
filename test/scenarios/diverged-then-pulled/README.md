@@ -30,7 +30,7 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_diverged_then_
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (push)
+ok   vendor/a [push-protected] (push)
  local.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -57,5 +57,5 @@ ok   vendor/a: pushed
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
 ```

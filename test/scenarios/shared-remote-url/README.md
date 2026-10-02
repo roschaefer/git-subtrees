@@ -30,8 +30,8 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_shared_remote_
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
-ok   vendor/b -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
+ok   vendor/b [push-protected] (up to date)
 ```
 
 A push from `vendor/a` shows up as `pull` for `vendor/b`:
@@ -57,8 +57,8 @@ ok   vendor/b fetched (main moved bde4164..7f225db)
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
-ok   vendor/b -> $UPSTREAM (pull)
+ok   vendor/a [push-protected] (up to date)
+ok   vendor/b [push-protected] (pull)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -76,6 +76,6 @@ ok   vendor/b: pulled
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
-ok   vendor/b -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
+ok   vendor/b [push-protected] (up to date)
 ```

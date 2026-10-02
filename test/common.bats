@@ -20,7 +20,7 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p vendor/a
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git remote add ghost "$upstream" # no matching dir
 
   discover_subtrees
@@ -36,9 +36,9 @@ setup() {
   init_monorepo "$monorepo"
   cd "$monorepo"
   mkdir -p packages/alpha packages/bravo packages/charlie
-  git remote add packages/alpha "$upstream"
-  git remote add packages/bravo "$upstream"
-  git remote add packages/charlie "$upstream"
+  add_subtree_remote packages/alpha "$upstream"
+  add_subtree_remote packages/bravo "$upstream"
+  add_subtree_remote packages/charlie "$upstream"
 
   discover_subtrees
 
@@ -123,7 +123,7 @@ setup() {
   local theirs
   theirs="$(GIT_AUTHOR_DATE='2001-01-01T00:00:00' GIT_COMMITTER_DATE='2001-01-01T00:00:00' \
     git commit-tree 'vendor/a/main^{tree}' -p 'vendor/a/main~1' -m "their change")"
-  git push -q --force vendor/a "$theirs:refs/heads/main"
+  git push -q --force "$upstream" "$theirs:refs/heads/main"
   git fetch -q vendor/a
   classify_subtree "vendor/a" "main"
   [ "$SUBTREE_STATE" = "diverged" ]
@@ -203,7 +203,7 @@ setup() {
   mkdir -p vendor/a
   echo "pre-existing" >vendor/a/other.txt
   git add vendor/a && git commit -q -m "pre-existing"
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   classify_subtree "vendor/a" "main"
   [ "$SUBTREE_STATE" = "unrelated-history" ]
@@ -216,17 +216,52 @@ setup() {
   [ "$SUBTREE_STATE" = "unrelated-history" ]
 }
 
-@test "classify_subtree: resolves the URL of a remote named like a flag" {
+@test "with_push_allowed: lets a protected remote named like a flag be pushed to at its fetch URL" {
   make_bare_repo "$upstream"
-  seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
   cd "$monorepo"
-  mkdir -p -- -n
   git remote add -- -n "$upstream"
-  git fetch -q -- -n
+  git remote set-url --push -- -n "$PUSH_PROTECTED_URL"
 
-  classify_subtree "-n" "main"
-  [ "$SUBTREE_URL" = "$upstream" ]
+  is_push_protected -n
+  [ "$(with_push_allowed -n git remote get-url --push -- -n)" = "$upstream" ]
+  [ "$(git remote get-url --push -- -n)" = "$PUSH_PROTECTED_URL" ]
+}
+
+@test "with_push_allowed: keeps a remote's own push URL" {
+  make_bare_repo "$upstream"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$upstream"
+  git remote set-url --push vendor/a "$BATS_TEST_TMPDIR/elsewhere.git"
+
+  run is_push_protected vendor/a
+  [ "$status" -eq 1 ]
+  [ "$(with_push_allowed vendor/a git remote get-url --push vendor/a)" = "$BATS_TEST_TMPDIR/elsewhere.git" ]
+}
+
+@test "with_push_allowed: keeps config passed in the environment by the caller" {
+  make_bare_repo "$upstream"
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$upstream"
+  git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
+
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=test.key GIT_CONFIG_VALUE_0=kept \
+    run with_push_allowed vendor/a bash -c 'git config test.key && git remote get-url --push vendor/a'
+  [ "$status" -eq 0 ]
+  [ "$output" = "kept"$'\n'"$upstream" ]
+}
+
+@test "is_push_protected: not for a remote with another push URL besides the protected one" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "$upstream"
+  git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
+  git remote set-url --add --push vendor/a "$upstream"
+
+  run is_push_protected vendor/a
+  [ "$status" -eq 1 ]
 }
 
 @test "classify_subtree: not-connected" {
@@ -241,7 +276,7 @@ setup() {
   seed_bare_repo "$upstream" "seed"
   init_monorepo "$monorepo"
   cd "$monorepo"
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   git checkout -q -b feature
   mkdir -p vendor/a
@@ -455,4 +490,65 @@ add_monorepo_origin() {
   run print_unrelated_history_guidance 'vendor/x;id' main
   [[ "$output" == *"git rm -r 'vendor/x;id'"* ]]
   [[ "$output" == *"git push --force 'vendor/x;id' 'tmp-split-x;id:main'"* ]]
+}
+
+@test "print_unrelated_history_guidance: lifts a protected remote's protection for the force push in one line, without printing its URL" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  git remote add vendor/a "https://x-access-token:secret@example.com/a.git"
+  git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
+
+  run print_unrelated_history_guidance vendor/a main
+  [[ "$output" == *"git config --unset remote.vendor/a.pushurl; git push --force vendor/a tmp-split-a:main; git remote set-url --push vendor/a '$PUSH_PROTECTED_URL'"$'\n'* ]]
+  [[ "$output" != *"secret"* ]]
+}
+
+# What a push to $1 goes to without protection, according to Git itself.
+git_push_target() {
+  local saved
+  saved="$(git config --get-all "remote.$1.pushurl")"
+  git config --unset-all "remote.$1.pushurl"
+  git remote get-url --push "$1"
+  git config --add "remote.$1.pushurl" "$saved"
+}
+
+@test "unprotected_push_url: the fetch URL, rewritten like Git rewrites it for a push" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  add_subtree_remote vendor/a "https://example.com/org/a.git"
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "https://example.com/org/a.git" ]
+
+  git config url.https://mirror.example.com/.insteadOf https://example.com/
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "https://mirror.example.com/org/a.git" ]
+
+  git config url.git@example.com:.pushInsteadOf https://example.com/
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "git@example.com:org/a.git" ]
+
+  git config "url.git@example.com:org/special-.pushInsteadOf" https://example.com/org/
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "git@example.com:org/special-a.git" ]
+}
+
+@test "unprotected_push_url: an empty pushInsteadOf prefix matches every URL, like in Git" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  add_subtree_remote vendor/a "org/a.git"
+  git config url.ssh://example.com/.pushInsteadOf ""
+
+  [ "$(unprotected_push_url vendor/a)" = "$(git_push_target vendor/a)" ]
+  [ "$(unprotected_push_url vendor/a)" = "ssh://example.com/org/a.git" ]
+}
+
+@test "is_push_protected: not for a protected remote that got another URL later" {
+  init_monorepo "$monorepo"
+  cd "$monorepo"
+  add_subtree_remote vendor/a "$upstream"
+  is_push_protected vendor/a
+
+  git remote set-url --add vendor/a "$BATS_TEST_TMPDIR/mirror.git"
+  run is_push_protected vendor/a
+  [ "$status" -eq 1 ]
 }

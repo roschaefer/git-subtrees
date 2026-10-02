@@ -34,7 +34,7 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_diverged_unrel
 
 ```scrut
 $ git subtrees status
-??   vendor/a -> $UPSTREAM (unrelated history -- see 'git subtrees pull vendor/a' for options)
+??   vendor/a [push-protected] (unrelated history -- see 'git subtrees pull vendor/a' for options)
 ```
 
 ```scrut
@@ -49,7 +49,7 @@ ok   vendor/a fetched
 
   # OR: accept the local (monorepo) version, overwriting vendor/a's history:
   git subtree split --prefix=vendor/a -b tmp-split-a
-  git push --force vendor/a tmp-split-a:main
+  git config --unset remote.vendor/a.pushurl; git push --force vendor/a tmp-split-a:main; git remote set-url --push vendor/a 'BLOCKED by git-subtrees -- push with => git subtrees push'
   git branch -D tmp-split-a
 
 !!   Failed: vendor/a

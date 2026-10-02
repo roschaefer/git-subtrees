@@ -81,6 +81,9 @@ seed_bare_repo "$upstream_dir/pkg-b.git" "pkg-b: seed"
 
 echo "=== building monorepo ==="
 git init -q --initial-branch=main "$mono_dir"
+# shellcheck disable=SC1091,SC2153 # sources lib/common.sh relative to this script
+push_protected_url="$(source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh" && printf '%s' "$PUSH_PROTECTED_URL")"
+
 (
   cd "$mono_dir"
   git config user.name "Walkthrough"
@@ -88,6 +91,8 @@ git init -q --initial-branch=main "$mono_dir"
   git commit -q --allow-empty -m "initial commit"
 
   git remote add vendor/pkg-a "$upstream_dir/pkg-a.git"
+  # Push-protected, as 'git subtrees init' would leave it.
+  git remote set-url --push vendor/pkg-a "$push_protected_url"
   git fetch -q vendor/pkg-a
   git subtree add -q --prefix=vendor/pkg-a vendor/pkg-a main --squash
 

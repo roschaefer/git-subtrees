@@ -166,6 +166,88 @@ target_ref_for() {
   printf 'refs/remotes/%s/%s\n' "$1" "$2"
 }
 
+# The push URL of a push-protected subtree remote. Any push to the remote
+# that isn't a `git subtree split` sends the whole monorepo there, so a plain
+# `git push <remote>` must fail: Git can't find a repository at this URL and
+# prints it. It must not contain ':', or Git hands it to ssh as a host name
+# and prints an ssh error instead.
+# See test/scenarios/push-protection/README.md.
+PUSH_PROTECTED_URL="BLOCKED by git-subtrees -- push with => git subtrees push"
+
+# Prints remote $1's configured push URLs, one per line.
+push_urls() {
+  git config --get-all "remote.$1.pushurl" 2>/dev/null || true
+}
+
+# Succeeds if remote $1 has exactly one URL. Without a push URL, Git pushes
+# to all of a remote's URLs, but PUSH_PROTECTED_URL can only be rewritten to
+# one of them.
+has_single_url() {
+  [[ "$(git config --get-all "remote.$1.url" 2>/dev/null | wc -l)" -eq 1 ]]
+}
+
+# Succeeds if remote $1's only push URL is PUSH_PROTECTED_URL and it has a
+# single URL to push to instead. A remote with a push URL of its own is left
+# alone, and isn't protected; neither is one that got another URL later, so
+# push leaves its blocked URL in place and fails instead of skipping a URL.
+is_push_protected() {
+  [[ "$(push_urls "$1")" == "$PUSH_PROTECTED_URL" ]] && has_single_url "$1"
+}
+
+# Succeeds if init may push-protect remote $1: it has no push URL of its
+# own, and a single URL.
+can_push_protect() {
+  [[ -z "$(push_urls "$1")" ]] && has_single_url "$1"
+}
+
+# Prints the URL a push to remote $1 would go to if it weren't protected.
+# Git rewrites the remote's URL with the longest matching
+# url.<base>.pushInsteadOf, else with url.<base>.insteadOf -- but not a
+# push URL like PUSH_PROTECTED_URL, so with_push_allowed has to do it.
+unprotected_push_url() {
+  local raw entry key prefix found=0 best_base="" best_prefix=""
+  raw="$(git config --get "remote.$1.url")" || return
+  while IFS= read -r -d '' entry; do
+    # A key without '=' has no newline and no value: not a prefix.
+    [[ "$entry" == *$'\n'* ]] || continue
+    key="${entry%%$'\n'*}"
+    prefix="${entry#*$'\n'}"
+    # An empty prefix matches every URL, like in Git.
+    if [[ "$raw" == "$prefix"* ]] && ((!found || ${#prefix} > ${#best_prefix})); then
+      found=1
+      best_prefix="$prefix"
+      best_base="${key#url.}"
+      best_base="${best_base%.*}"
+    fi
+  done < <(git config -z --get-regexp '^url\..*\.pushinsteadof$' 2>/dev/null || true)
+  if ((found)); then
+    printf '%s%s\n' "$best_base" "${raw#"$best_prefix"}"
+  else
+    git remote get-url -- "$1"
+  fi
+}
+
+# Runs "$@" with PUSH_PROTECTED_URL rewritten to where remote $1 would push
+# if it weren't protected, so a push to the remote by name gets through and
+# updates its tracking refs. Only for a protected remote: a remote with a
+# push URL of its own keeps pushing there, even if PUSH_PROTECTED_URL is
+# one of its push URLs. Passed through the environment rather than `git -c`,
+# which splits at the first '=' a URL may contain.
+with_push_allowed() {
+  local remote="$1" url n="${GIT_CONFIG_COUNT:-0}"
+  shift
+  if ! is_push_protected "$remote"; then
+    "$@"
+    return
+  fi
+  url="$(unprotected_push_url "$remote")" || return
+  (
+    export GIT_CONFIG_COUNT=$((n + 1))
+    export "GIT_CONFIG_KEY_$n=url.$url.insteadOf" "GIT_CONFIG_VALUE_$n=$PUSH_PROTECTED_URL"
+    "$@"
+  )
+}
+
 # False for a name starting with '-'. git-subtree's own OPTS_SPEC parsing
 # (git rev-parse --parseopt) matches a handful of dash-prefixed values as
 # its own flags no matter where they appear (-h/--help, -q/--quiet, ...),
@@ -322,7 +404,7 @@ touched_since_sync() {
 }
 
 # Classifies subtree <path>'s sync state against remote <path>'s <branch>.
-# Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_URL, SUBTREE_SPLIT_SHA as
+# Sets SUBTREE_STATE, SUBTREE_TARGET_REF, SUBTREE_SPLIT_SHA as
 # globals rather than returning a value, since callers (status, push, pull)
 # need them.
 #
@@ -352,7 +434,6 @@ classify_subtree() {
   SUBTREE_STATE=""
   SUBTREE_TARGET_REF=""
   SUBTREE_SPLIT_SHA=""
-  SUBTREE_URL="$(git remote get-url -- "$remote" 2>/dev/null || true)"
 
   if [[ -z "$(git for-each-ref "refs/remotes/$remote/")" ]]; then
     SUBTREE_STATE="not-connected"
@@ -459,6 +540,14 @@ print_unrelated_history_guidance() {
   q_tmp="$(shell_quote "$tmp_branch")"
   q_msg="$(shell_quote "remove $path before re-adopting it from its remote")"
   q_refspec="$(shell_quote "$tmp_branch:$branch")"
+  # A push-protected remote refuses the force push, so the commands lift
+  # the protection for it -- rather than push to the remote's URL, which
+  # may hold credentials and would skip url.<base>.pushInsteadOf. One line
+  # joined with ';', so the protection comes back even if the push fails.
+  local push_cmd="git push --force $q_path $q_refspec"
+  if is_push_protected "$path"; then
+    push_cmd="git config --unset $(shell_quote "remote.$path.pushurl"); git push --force $q_path $q_refspec; git remote set-url --push $q_path $(shell_quote "$PUSH_PROTECTED_URL")"
+  fi
   log_warn "$path: remote and local share no history -- pick one side manually:"
   cat >&2 <<EOF
 
@@ -469,7 +558,7 @@ print_unrelated_history_guidance() {
 
   # OR: accept the local (monorepo) version, overwriting $path's history:
   git subtree split --prefix=$q_path -b $q_tmp
-  git push --force $q_path $q_refspec
+  $push_cmd
   git branch -D $q_tmp
 
 EOF

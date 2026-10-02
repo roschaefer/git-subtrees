@@ -87,7 +87,7 @@ setup() {
   cd "$monorepo"
   git remote add ghost "$upstream"
   run cmd_status
-  [[ "$output" == *"ghost -> (no mapping)"* ]]
+  [[ "$output" == *"ghost [no mapping]"* ]]
 }
 
 @test "status: does not print unmapped remote URL" {
@@ -97,7 +97,7 @@ setup() {
 
   run cmd_status
 
-  [[ "$output" == *"origin -> (no mapping)"* ]]
+  [[ "$output" == *"origin [no mapping]"* ]]
   [[ "$output" != *"token"* ]]
   [[ "$output" != *"example.com"* ]]
 }
@@ -173,4 +173,70 @@ setup() {
   run cmd_status --base=
   [ "$status" -eq 1 ]
   [[ "$output" == *"--base needs a branch name"* ]]
+}
+
+@test "status: marks a push-protected subtree, without a warning" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
+
+  run cmd_status
+  [ "$status" -eq 0 ]
+  [ "$output" = "ok   vendor/a [push-protected] (up to date)" ]
+}
+
+@test "status: marks a subtree that isn't push-protected, without nagging about it" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
+
+  run cmd_status
+  [ "$status" -eq 0 ]
+  [ "$output" = "ok   vendor/a [NOT push-protected] (up to date)" ]
+}
+
+@test "status: -h shows a command that push-protects a subtree" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
+
+  local fix
+  fix="$(usage_status | grep 'git remote set-url --push')"
+  eval "${fix//<path>/vendor/a}"
+  is_push_protected vendor/a
+}
+
+@test "status: shows a remote with its own push URL as not push-protected" {
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git remote set-url --push vendor/a "$upstream"
+
+  run cmd_status
+  [[ "$output" == *"vendor/a [NOT push-protected]"* ]]
+}
+
+@test "status: colors [NOT push-protected] red on a terminal" {
+  command -v script >/dev/null || skip "needs script(1) for a terminal"
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
+
+  TERM=xterm run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'\e[31m[NOT push-protected]\e[m'* ]]
+}
+
+@test "status: doesn't color where git wouldn't color its own status" {
+  command -v script >/dev/null || skip "needs script(1) for a terminal"
+  scenario_up_to_date "$monorepo" "$upstream"
+  cd "$monorepo"
+  git config --unset remote.vendor/a.pushurl
+
+  run cmd_status
+  [[ "$output" != *$'\e['* ]]
+
+  git config color.status never
+  TERM=xterm run script -qec "$BATS_TEST_DIRNAME/../git-subtrees status" /dev/null
+  [[ "$output" == *"[NOT push-protected]"* ]]
+  [[ "$output" != *$'\e['* ]]
 }

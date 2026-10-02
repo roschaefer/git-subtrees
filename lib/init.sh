@@ -16,6 +16,11 @@ base branch instead, so your first push creates the missing branch on top
 of it. The base branch is taken from --base, else from origin/HEAD, else
 from init.defaultBranch. If none resolves, or the remote lacks that branch
 too (e.g. it's empty), init only registers the remote.
+
+init push-protects the remote unless it has a push URL of its own or
+several URLs: it sets the push URL to one Git can't push to, so a plain
+'git push <path>' can't send the whole monorepo there. 'git subtrees push'
+still works.
 EOF
 }
 
@@ -116,6 +121,10 @@ cmd_init() {
   if [[ -z "$existing_url" ]]; then
     log_step "$path: registering remote -> $url"
     git remote add -- "$path" "$url"
+  fi
+  if can_push_protect "$path"; then
+    git remote set-url --push -- "$path" "$PUSH_PROTECTED_URL"
+    log_step "$path: push-protected -- a plain 'git push $(shell_quote "$path")' fails, 'git subtrees push' works"
   fi
 
   log_step "$path: fetching"

@@ -27,6 +27,7 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_init_on_featur
 ```scrut
 $ git subtrees init vendor/a "$UPSTREAM"
 ===  vendor/a: registering remote -> $UPSTREAM
+===  vendor/a: push-protected -- a plain 'git push vendor/a' fails, 'git subtrees push' works
 ===  vendor/a: fetching
 ok   vendor/a fetched
 ===  vendor/a: remote has no 'feature' branch yet -- using its 'main' branch; your first push creates 'feature'
@@ -40,7 +41,7 @@ ok   vendor/a: added
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (no 'feature' branch on remote; changed since 'main' -- push would create it)
+ok   vendor/a [push-protected] (no 'feature' branch on remote; changed since 'main' -- push would create it)
  vendor/a/file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -56,5 +57,5 @@ ok   vendor/a: pushed
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
 ```

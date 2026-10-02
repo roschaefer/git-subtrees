@@ -10,7 +10,7 @@ scenario_pushed_then_changed() {
     echo "pushed change" >>vendor/a/file.txt
     git add vendor/a/file.txt
     git commit -q -m "pushed change"
-    git subtree push -q --prefix=vendor/a vendor/a main >/dev/null 2>&1
+    git subtree push -q --prefix=vendor/a "$upstream" main >/dev/null 2>&1
     git fetch -q vendor/a
     echo "later change" >>vendor/a/file.txt
     git add vendor/a/file.txt

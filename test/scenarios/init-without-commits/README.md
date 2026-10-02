@@ -42,6 +42,7 @@ After an initial commit, the same command adds the subtree:
 ```scrut
 $ git commit -q --allow-empty -m 'initial commit' && git subtrees init vendor/a "$UPSTREAM"
 ===  vendor/a: registering remote -> $UPSTREAM
+===  vendor/a: push-protected -- a plain 'git push vendor/a' fails, 'git subtrees push' works
 ===  vendor/a: fetching
 ok   vendor/a fetched
 ===  vendor/a: adding subtree from $UPSTREAM

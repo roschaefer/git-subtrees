@@ -21,5 +21,5 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_not_connected
 
 ```scrut
 $ git subtrees status
-??   vendor/a -> $UPSTREAM (never fetched -- run 'git subtrees fetch vendor/a')
+??   vendor/a [push-protected] (never fetched -- run 'git subtrees fetch vendor/a')
 ```

@@ -113,7 +113,7 @@ setup() {
   cd "$fresh_monorepo"
   git config user.name "Test"
   git config user.email "test@example.com"
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a "+refs/heads/main:refs/remotes/vendor/a/main"
   # The remote is gone: any attempt to reach it would fail loudly.
   git remote set-url vendor/a "$BATS_TEST_TMPDIR/does-not-exist.git"

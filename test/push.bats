@@ -58,7 +58,7 @@ setup() {
   after="$(git -C "$upstream" rev-parse main)"
   [ "$before" = "$after" ]
   [[ "$output" == *"share no history"* ]]
-  [[ "$output" == *"git push --force vendor/a"* ]]
+  [[ "$output" == *"git push --force vendor/a tmp-split-a:main"* ]]
 }
 
 @test "push_one: refuses a branch git-subtree cannot use, without classifying" {
@@ -158,7 +158,7 @@ remote_has_branch() {
   mkdir -p vendor/a
   echo "content" >vendor/a/file.txt
   git add vendor/a && git commit -q -m "add vendor/a"
-  git remote add vendor/a "$upstream"
+  add_subtree_remote vendor/a "$upstream"
   git fetch -q vendor/a
   run push_one "vendor/a" "main" "main"
   [ "$status" -eq 0 ]
@@ -303,4 +303,92 @@ remote_has_branch() {
   run push_one "vendor/a" "feature-1" "main"
   [ "$status" -eq 0 ]
   git -C "$upstream" merge-base --is-ancestor "$before" feature-1
+}
+
+@test "push: pushes a push-protected remote at its fetch URL and updates its tracking ref" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  cd "$monorepo"
+  git remote set-url --push vendor/a "$PUSH_PROTECTED_URL"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  [ "$(git rev-parse refs/remotes/vendor/a/main)" = "$(git -C "$upstream" rev-parse main)" ]
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "up-to-date" ]
+  is_push_protected vendor/a
+}
+
+@test "push: a remote with its own push URL is pushed there" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  local mirror="$BATS_TEST_TMPDIR/mirror.git"
+  git clone -q --bare "$upstream" "$mirror"
+  cd "$monorepo"
+  git remote set-url --push vendor/a "$mirror"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+  [ "$(git -C "$mirror" rev-parse main)" != "$before" ]
+}
+
+@test "push: the printed commands that keep the local side work on a push-protected remote" {
+  scenario_diverged_unrelated_history "$monorepo" "$upstream"
+  cd "$monorepo"
+  is_push_protected vendor/a
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 1 ]
+  local keep_local
+  keep_local="$(sed -n '/OR: accept the local/,/git branch -D/p' <<<"$output" | grep -v '^ *#')"
+  eval "$keep_local"
+
+  [ "$(git -C "$upstream" rev-parse 'main^{tree}')" = "$(git rev-parse HEAD:vendor/a)" ]
+  classify_subtree "vendor/a" "main"
+  [ "$SUBTREE_STATE" = "up-to-date" ]
+}
+
+@test "push: a push-protected remote is pushed to where url.<base>.pushInsteadOf sends it" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  local push_target="$BATS_TEST_TMPDIR/push-target.git"
+  git clone -q --bare "$upstream" "$push_target"
+  cd "$monorepo"
+  git config "url.$push_target.pushInsteadOf" "$upstream"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+  [ "$(git -C "$push_target" rev-parse main)" != "$before" ]
+}
+
+@test "push: a protected remote with another push URL added later doesn't push to its fetch URL" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  local other="$BATS_TEST_TMPDIR/other.git"
+  git clone -q --bare "$upstream" "$other"
+  cd "$monorepo"
+  git remote set-url --add --push vendor/a "$other"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+}
+
+@test "push: a protected remote that got another URL later fails instead of skipping that URL" {
+  scenario_push_ahead "$monorepo" "$upstream"
+  local mirror="$BATS_TEST_TMPDIR/mirror.git"
+  git clone -q --bare "$upstream" "$mirror"
+  cd "$monorepo"
+  git remote set-url --add vendor/a "$mirror"
+  local before
+  before="$(git -C "$upstream" rev-parse main)"
+
+  run push_one "vendor/a" "main"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"'$PUSH_PROTECTED_URL' does not appear to be a git repository"* ]]
+  [ "$(git -C "$upstream" rev-parse main)" = "$before" ]
+  [ "$(git -C "$mirror" rev-parse main)" = "$before" ]
 }

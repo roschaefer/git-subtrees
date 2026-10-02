@@ -19,6 +19,9 @@ creates the missing branch.
 
 On an unrelated-history divergence (no shared ancestor at all), push does
 not attempt to push -- it prints manual recovery commands instead.
+
+A push-protected remote (see 'git subtrees status') is pushed to at its
+fetch URL. A remote with a push URL of its own is pushed to there.
 EOF
 }
 
@@ -81,7 +84,7 @@ push_one() {
     push | diverged) ;;
   esac
 
-  if ! git subtree push --prefix="$path" "$path" "$branch"; then
+  if ! with_push_allowed "$path" git subtree push --prefix="$path" "$path" "$branch"; then
     log_err "$path: push failed"
     return 1
   fi

@@ -24,7 +24,7 @@ $ source "$TESTDIR/../readme-setup.sh" && build_scenario scenario_pull_ahead
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (pull)
+ok   vendor/a [push-protected] (pull)
  file.txt | 1 +
  1 file changed, 1 insertion(+)
 ```
@@ -46,5 +46,5 @@ ok   vendor/a: pulled
 
 ```scrut
 $ git subtrees status
-ok   vendor/a -> $UPSTREAM (up to date)
+ok   vendor/a [push-protected] (up to date)
 ```
