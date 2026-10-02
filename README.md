@@ -123,6 +123,9 @@ More scenarios:
   subtree inside another is refused.
 - [`shared-remote-url`](test/scenarios/shared-remote-url/README.md): two
   subtrees with the same remote URL act like two clones of one repo.
+- [`squash-merged-pull`](test/scenarios/squash-merged-pull/README.md): a
+  known bug. After a pull on a branch that was squash-merged, `status`
+  reports `diverged` instead of `push`.
 
 [How the last sync point is found](docs/last-synced-commit/README.md)
 explains how the states are worked out and lists known limitations.
